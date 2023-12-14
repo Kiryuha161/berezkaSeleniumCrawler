@@ -1,3 +1,5 @@
+import os
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -13,12 +15,45 @@ import time
 
 def main():
     options = Options()
-    options.add_argument("--user-data-dir=C:\\Users\\igors\\Desktop\\BEREZKA\\UserData")
+    cwd = os.getcwd().replace('/', '\\')
+    options.add_argument(f"--user-data-dir={cwd}\\UserData")
     options.page_load_strategy = 'normal'
     driver = webdriver.Chrome(options=options)
     driver.get("https://agregatoreat.ru/lk/supplier/eat/purchases/active/all")
-    time.sleep(20)
-    driver.get("https://agregatoreat.ru/purchases/new")
+
+    while True:
+        if not driver.find_elements(By.CSS_SELECTOR, "#filterField-14-autocomplete"):
+            while True:
+                if driver.find_elements(By.CSS_SELECTOR, ".btn-block.mt-0"):
+                    driver.find_elements(By.CSS_SELECTOR, ".btn-block.mt-0")[0].click()
+                    break
+                else:
+                    time.sleep(1)
+
+            while True:
+                if driver.find_elements(By.CSS_SELECTOR, ".plain-button_light") and driver.find_elements(By.CSS_SELECTOR, ".plain-button_light")[1].get_attribute("innerText") == " Эл. подпись ":
+                    driver.find_elements(By.CSS_SELECTOR, ".plain-button_light")[1].click()
+                    while True:
+                        if driver.find_elements(By.CSS_SELECTOR, ".plain-button_wide"):
+                            driver.find_elements(By.CSS_SELECTOR, ".plain-button_wide")[0].click()
+                            break
+                        else:
+                            time.sleep(1)
+                    break
+                else:
+                    time.sleep(1)
+
+            while True:
+                if driver.find_elements(By.CSS_SELECTOR, "#searchFilterText"):
+                    driver.get("https://agregatoreat.ru/purchases/new")
+                    break
+                else:
+                    time.sleep(1)
+        else:
+            driver.get("https://agregatoreat.ru/purchases/new")
+            break
+
+    #time.sleep(100000)
 
     while True:
         if driver.find_elements(By.CSS_SELECTOR, "#filterField-14-autocomplete"):
@@ -77,23 +112,24 @@ def main():
                     addDoc = driver.find_elements(By.CSS_SELECTOR, ".add-document-btn")[0]
                     addDoc.click()
                     docName = driver.find_element(By.ID, "documentEditableNameInput-0")
-                    docName.send_keys('Декларация')
+                    docName.send_keys('Документы')
                     break
                 else:
                     time.sleep(1)
 
     price = driver.find_element(By.ID, "lotItemPriceInput-0")
-    nds = driver.find_elements(By.TAG_NAME, "p-dropdown")
 
     for i in range(20):
         price.send_keys(Keys.BACKSPACE)
 
     price.send_keys("0,01")
-    nds[1].click()
 
-    move = ActionChains(driver).move_to_element_with_offset(nds[1], 10, 40)
-    move.click()
-    move.perform()
+    while True:
+        if driver.find_elements(By.CSS_SELECTOR, ".tax"):
+            driver.find_elements(By.CSS_SELECTOR, ".tax")[0].click()
+            break
+        else:
+            time.sleep(1)
 
     if driver.find_elements(By.CLASS_NAME, "select-tru__icon"):
         tru = driver.find_elements(By.CLASS_NAME, "select-tru__icon")
