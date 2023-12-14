@@ -26,6 +26,12 @@ def full_login(driver):
                 else:
                     time.sleep(1)
         elif "gosuslugi" not in driver.current_url:
+            if driver.find_elements(By.CSS_SELECTOR, "#orglist"):
+                while True:
+                    if driver.find_elements(By.CSS_SELECTOR, "#orglist"):
+                        time.sleep(1)
+                    else:
+                        break
             break
         else:
             time.sleep(1)
