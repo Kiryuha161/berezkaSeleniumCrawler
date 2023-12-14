@@ -13,6 +13,24 @@ import sys
 import time
 
 
+def full_login(driver):
+    while True:
+        if driver.find_elements(By.CSS_SELECTOR, ".plain-button_light") and \
+                driver.find_elements(By.CSS_SELECTOR, ".plain-button_light")[1].get_attribute(
+                        "innerText") == "Эл. подпись":
+            driver.find_elements(By.CSS_SELECTOR, ".plain-button_light")[1].click()
+            while True:
+                if driver.find_elements(By.CSS_SELECTOR, ".plain-button_wide"):
+                    driver.find_elements(By.CSS_SELECTOR, ".plain-button_wide")[0].click()
+                    break
+                else:
+                    time.sleep(1)
+        elif "gosuslugi" not in driver.current_url:
+            break
+        else:
+            time.sleep(1)
+
+
 def main():
     options = Options()
     cwd = os.getcwd().replace('/', '\\')
@@ -21,37 +39,34 @@ def main():
     driver = webdriver.Chrome(options=options)
     driver.get("https://agregatoreat.ru/lk/supplier/eat/purchases/active/all")
 
-    while True:
-        if not driver.find_elements(By.CSS_SELECTOR, "#filterField-14-autocomplete"):
+    time.sleep(3)
+
+    if "https://login.agregatoreat.ru/Account/Login" in driver.current_url:
+        while True:
+            if driver.find_elements(By.CSS_SELECTOR, ".btn-block.mt-0"):
+                driver.find_elements(By.CSS_SELECTOR, ".btn-block.mt-0")[0].click()
+                break
+            else:
+                time.sleep(1)
+
+        time.sleep(5)
+
+        if driver.find_elements(By.CSS_SELECTOR, "#orglist"):
             while True:
-                if driver.find_elements(By.CSS_SELECTOR, ".btn-block.mt-0"):
-                    driver.find_elements(By.CSS_SELECTOR, ".btn-block.mt-0")[0].click()
+                if driver.find_elements(By.CSS_SELECTOR, "#orglist"):
+                    time.sleep(1)
+                else:
+                    break
+
+        if driver.find_elements(By.CSS_SELECTOR, ".plain-button_light"):
+            while True:
+                if driver.find_elements(By.CSS_SELECTOR, ".plain-button_light"):
+                    full_login(driver)
                     break
                 else:
                     time.sleep(1)
 
-            while True:
-                if driver.find_elements(By.CSS_SELECTOR, ".plain-button_light") and driver.find_elements(By.CSS_SELECTOR, ".plain-button_light")[1].get_attribute("innerText") == " Эл. подпись ":
-                    driver.find_elements(By.CSS_SELECTOR, ".plain-button_light")[1].click()
-                    while True:
-                        if driver.find_elements(By.CSS_SELECTOR, ".plain-button_wide"):
-                            driver.find_elements(By.CSS_SELECTOR, ".plain-button_wide")[0].click()
-                            break
-                        else:
-                            time.sleep(1)
-                    break
-                else:
-                    time.sleep(1)
-
-            while True:
-                if driver.find_elements(By.CSS_SELECTOR, "#searchFilterText"):
-                    driver.get("https://agregatoreat.ru/purchases/new")
-                    break
-                else:
-                    time.sleep(1)
-        else:
-            driver.get("https://agregatoreat.ru/purchases/new")
-            break
+    driver.get("https://agregatoreat.ru/purchases/new")
 
     #time.sleep(100000)
 
