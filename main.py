@@ -3,6 +3,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QApplication, QMainWindow
 import sys
@@ -30,7 +32,8 @@ def main():
     options = Options()
     options.add_argument("--user-data-dir=C:\\Users\\igors\\Desktop\\BEREZKA\\UserData")
     options.page_load_strategy = 'normal'
-    driver = webdriver.Chrome(options=options)
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=options)
     #driver.get("https://agregatoreat.ru/lk/supplier/eat/purchases/active/all")
     #time.sleep(5)
     driver.get("https://agregatoreat.ru/purchases/new")

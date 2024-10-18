@@ -4,10 +4,13 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
+
 from selenium.webdriver.common.action_chains import ActionChains
 from pynput.keyboard import Key, Controller
-from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton
+#from PyQt5 import QtWidgets, QtGui
+#from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton
 import sys
 
 import time
@@ -24,7 +27,8 @@ def full_login(driver):
                     driver.find_elements(By.CSS_SELECTOR, ".plain-button_wide")[0].click()
                     break
                 else:
-                    time.sleep(1)
+                    time.sleep(1
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    )
         elif "gosuslugi" not in driver.current_url:
             if driver.find_elements(By.CSS_SELECTOR, "#orglist"):
                 while True:
@@ -42,7 +46,8 @@ def main():
     cwd = os.getcwd().replace('/', '\\')
     options.add_argument(f"--user-data-dir={cwd}\\UserData")
     options.page_load_strategy = 'normal'
-    driver = webdriver.Chrome(options=options)
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=options)
     driver.get("https://agregatoreat.ru/lk/supplier/eat/purchases/active/all")
 
     time.sleep(3)
