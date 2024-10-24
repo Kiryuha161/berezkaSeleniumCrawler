@@ -4,16 +4,24 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
-
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.action_chains import ActionChains
 from pynput.keyboard import Key, Controller
-#from PyQt5 import QtWidgets, QtGui
-#from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton
+from PyQt5 import QtWidgets, QtGui
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton
 import sys
+import psutil
 
 import time
+
+
+def kill_chrome_processes():
+    """Завершение процессов хрома. Используется перед запуском selenium, так как запущенные процессы мешают
+    запуску бота"""
+    for proc in psutil.process_iter(['pid', 'name']):
+        if proc.info['name'] == 'chrome.exe':
+            proc.kill()
 
 
 def full_login(driver):
@@ -27,8 +35,7 @@ def full_login(driver):
                     driver.find_elements(By.CSS_SELECTOR, ".plain-button_wide")[0].click()
                     break
                 else:
-                    time.sleep(1
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    )
+                    time.sleep(1)
         elif "gosuslugi" not in driver.current_url:
             if driver.find_elements(By.CSS_SELECTOR, "#orglist"):
                 while True:
@@ -43,8 +50,24 @@ def full_login(driver):
 
 def main():
     options = Options()
-    cwd = os.getcwd().replace('/', '\\')
-    options.add_argument(f"--user-data-dir={cwd}\\UserData")
+    # cwd = os.getcwd().replace('/', '\\')
+    options.add_argument(r"--user-data-dir=C:\Users\User\AppData\Local\Google\Chrome\User Data")
+    options.add_argument(r'--profile-directory=Default')
+    # options.add_argument(f'--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+    #                      f' AppleWebKit/537.36 (KHTML, like Gecko)'
+    #                      f' Chrome/87.0.4280.88 Safari/537.36')
+    # options.add_argument('--window-size=1920,1080')
+    # options.add_argument('--no-sandbox')
+    # options.add_argument('--disable-notifications')
+    # options.add_argument('--disable-popup-blocking')
+    # options.add_argument('--disable-web-security')
+    # options.add_argument('--disable-dev-shm-usage')
+    # options.add_argument('--disable-site-isolation-trials')
+    # options.add_argument('--disable-features=Translate')
+    # options.add_argument('--remote-debugging-port=9222')
+    # options.add_argument('--disable-gpu')
+
+    print(options.arguments)
     options.page_load_strategy = 'normal'
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
@@ -54,8 +77,8 @@ def main():
 
     if "https://login.agregatoreat.ru/Account/Login" in driver.current_url:
         while True:
-            if driver.find_elements(By.CSS_SELECTOR, ".btn-block.mt-0"):
-                driver.find_elements(By.CSS_SELECTOR, ".btn-block.mt-0")[0].click()
+            if driver.find_elements(By.CSS_SELECTOR, ".btn-block.mb-3"):  # ".btn-block.mb-0"
+                driver.find_elements(By.CSS_SELECTOR, ".btn-block.mb-3")[0].click()
                 break
             else:
                 time.sleep(1)
@@ -216,37 +239,32 @@ def window():
     win = QMainWindow()
     win.setGeometry(200, 200, 370, 300)
     win.setWindowTitle("BEREZKA")
-
     label1 = QtWidgets.QLabel(win)
     label1.setText("ИНН заказчика")
     label1.resize(150, 18)
     label1.move(120, 50)
-
     inp = QtWidgets.QLineEdit(win)
     inp.show()
     inp.resize(270, 30)
     inp.move(50, 80)
-
     check = QtWidgets.QCheckBox(win)
     check.show()
     check.move(50, 120)
-
     label2 = QtWidgets.QLabel(win)
     label2.show()
     label2.setText("Подавать заявку автоматически")
     label2.resize(300, 18)
     label2.move(80, 125)
-
     button = QtWidgets.QPushButton(win)
     button.show()
     button.setText("Запуск")
     button.resize(200, 50)
     button.move(80, 200)
-
     win.show()
     sys.exit(app.exec_())
 """
 
 if __name__ == '__main__':
     #window()
+    kill_chrome_processes()
     main()
