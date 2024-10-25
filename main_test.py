@@ -10,6 +10,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from pynput.keyboard import Key, Controller
 from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton
+from selenium.common.exceptions import NoSuchElementException
 import sys
 import psutil
 
@@ -18,7 +19,8 @@ import time
 
 def kill_chrome_processes():
     """Завершение процессов хрома. Используется перед запуском selenium, так как запущенные процессы мешают
-    запуску бота"""
+    запуску бота. Возможно, временние решение, пока не будет реализовано управление ботом через консоль,
+    где будет возможность корректно завершить процессы через апи драйвера"""
     for proc in psutil.process_iter(['pid', 'name']):
         if proc.info['name'] == 'chrome.exe':
             proc.kill()
@@ -49,25 +51,13 @@ def full_login(driver):
 
 
 def main():
+    inn = input("Введите ИНН: ")  # 7708701670
+    # работает
     options = Options()
-    # cwd = os.getcwd().replace('/', '\\')
     options.add_argument(r"--user-data-dir=C:\Users\User\AppData\Local\Google\Chrome\User Data")
     options.add_argument(r'--profile-directory=Default')
-    # options.add_argument(f'--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-    #                      f' AppleWebKit/537.36 (KHTML, like Gecko)'
-    #                      f' Chrome/87.0.4280.88 Safari/537.36')
-    # options.add_argument('--window-size=1920,1080')
-    # options.add_argument('--no-sandbox')
-    # options.add_argument('--disable-notifications')
-    # options.add_argument('--disable-popup-blocking')
-    # options.add_argument('--disable-web-security')
-    # options.add_argument('--disable-dev-shm-usage')
-    # options.add_argument('--disable-site-isolation-trials')
-    # options.add_argument('--disable-features=Translate')
-    # options.add_argument('--remote-debugging-port=9222')
-    # options.add_argument('--disable-gpu')
+    options.add_extension(r'./CryptoPro-Extension-for-CAdES-Browser-Plug-in-Chrome.crx')
 
-    print(options.arguments)
     options.page_load_strategy = 'normal'
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
@@ -77,8 +67,10 @@ def main():
 
     if "https://login.agregatoreat.ru/Account/Login" in driver.current_url:
         while True:
-            if driver.find_elements(By.CSS_SELECTOR, ".btn-block.mb-3"):  # ".btn-block.mb-0"
-                driver.find_elements(By.CSS_SELECTOR, ".btn-block.mb-3")[0].click()
+            # работает, аутентификация по эцп
+            selector = ".btn-block.mb-3"  # ".btn-block.mb-0" для госуслуг
+            if driver.find_elements(By.CSS_SELECTOR, selector):
+                driver.find_elements(By.CSS_SELECTOR, selector)[0].click()
                 break
             else:
                 time.sleep(1)
@@ -88,8 +80,10 @@ def main():
         if driver.find_elements(By.CSS_SELECTOR, "#orglist"):
             while True:
                 if driver.find_elements(By.CSS_SELECTOR, "#orglist"):
+                    print("#orglist найден")
                     time.sleep(1)
                 else:
+                    print("#orglist не найден")
                     break
 
         if driver.find_elements(By.CSS_SELECTOR, ".plain-button_light"):
@@ -107,27 +101,56 @@ def main():
     while True:
         if driver.find_elements(By.CSS_SELECTOR, "#filterField-14-autocomplete"):
             text_field1 = driver.find_elements(By.CSS_SELECTOR, "#filterField-14-autocomplete")[0]
-            text_field1.send_keys("7708701670")  # Сюда ввести нужный ИНН
+            # text_field1.send_keys("7708701670")  # Сюда ввести нужный ИНН
+            text_field1.send_keys(inn)
             break
         else:
             time.sleep(1)
 
     while True:
-        if driver.find_elements(By.CSS_SELECTOR, "#pr_id_2_list"):
-            autocomp = driver.find_elements(By.CSS_SELECTOR, "#pr_id_2_list")[0]
-            autocomp.click()
+        try:
+            # работает, выбор всплывашки с введённым ИНН
+            element = driver.find_element(By.XPATH,
+                                          "//span[contains(text(), "
+                                          f"'ИНН: {inn}')]")
+            element.click()
             break
-        else:
-            time.sleep(1)
+        except NoSuchElementException:
+            print("Элемент с текстом ИНН не найден, пробуем ещё раз...")
+            time.sleep(5)
+
+    while True:
+        # работает, наименование или номер закупки
+        try:
+            element = driver.find_element(By.ID, "searchText")
+            element.send_keys("арест")
+            break
+        except NoSuchElementException:
+            print("Элемент #searchText не найден, пробуем ещё раз...")
+            time.sleep(5)
+
+# пока не ясно для чего нужно, возможно, уже не актуально
+#     while True:
+#         if driver.find_elements(By.CSS_SELECTOR, "#pr_id_2_list"):
+#             autocomp = driver.find_elements(By.CSS_SELECTOR, "#pr_id_2_list")[0]
+#             print("#pr_id_2_list найден", autocomp)
+#             autocomp.click()
+#             break
+#         else:
+#             print("#pr_id_2_list не найден")
+#             time.sleep(1)
 
     # Фильтр по словам
     # text_field2 = driver.find_element(By.ID, "filterField-2-input")
     # text_field2.send_keys("реал")
 
+    # нажатие на кнопку Показать
     refresh_btn = driver.find_element(By.ID, "applyFilterButton")
     refresh_btn.click()
     time.sleep(3)
 
+    # чтение номера лота из lot_numbers.txt, если его нет - добавление в файл и подача заявки,
+    # если есть удаление карточки лота (не должно отображаться)
     while True:
         if driver.find_elements(By.ID, "tradeNumber"):
             lotNum = driver.find_element(By.ID, "tradeNumber").get_attribute("innerText")
