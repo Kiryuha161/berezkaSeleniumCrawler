@@ -1,224 +1,76 @@
-import os
+import psutil
+import time
+
+from Bot import Bot
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.common.action_chains import ActionChains
 from pynput.keyboard import Key, Controller
-from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton
-from selenium.common.exceptions import NoSuchElementException
-import sys
-import psutil
-
-import time
 
 
 def kill_chrome_processes():
-    """Завершение процессов хрома. Используется перед запуском selenium, так как запущенные процессы мешают
-    запуску бота. Возможно, временние решение, пока не будет реализовано управление ботом через консоль,
-    где будет возможность корректно завершить процессы через апи драйвера"""
+    """
+    Завершение всех запущенных процессов Google Chrome.
+    :return: ничего не возвращает.
+    """
     for proc in psutil.process_iter(['pid', 'name']):
         if proc.info['name'] == 'chrome.exe':
             proc.kill()
 
 
-def full_login(driver):
-    while True:
-        if driver.find_elements(By.CSS_SELECTOR, ".plain-button_light") and \
-                driver.find_elements(By.CSS_SELECTOR, ".plain-button_light")[1].get_attribute(
-                        "innerText") == "Эл. подпись":
-            driver.find_elements(By.CSS_SELECTOR, ".plain-button_light")[1].click()
-            while True:
-                if driver.find_elements(By.CSS_SELECTOR, ".plain-button_wide"):
-                    driver.find_elements(By.CSS_SELECTOR, ".plain-button_wide")[0].click()
-                    break
-                else:
-                    time.sleep(1)
-        elif "gosuslugi" not in driver.current_url:
-            if driver.find_elements(By.CSS_SELECTOR, "#orglist"):
-                while True:
-                    if driver.find_elements(By.CSS_SELECTOR, "#orglist"):
-                        time.sleep(1)
-                    else:
-                        break
-            break
-        else:
-            time.sleep(1)
-
-
 def main():
     inn = input("Введите ИНН: ")  # 7708701670
-    # работает
-    options = Options()
-    options.add_argument(r"--user-data-dir=C:\Users\User\AppData\Local\Google\Chrome\User Data")
-    options.add_argument(r'--profile-directory=Default')
-    options.add_extension(r'./CryptoPro-Extension-for-CAdES-Browser-Plug-in-Chrome.crx')
-
-    options.page_load_strategy = 'normal'
+    bot = Bot()
+    options = bot.init_options()
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
-    driver.get("https://agregatoreat.ru/lk/supplier/eat/purchases/active/all")
 
+    driver.get("https://agregatoreat.ru/lk/supplier/eat/purchases/active/all")
     time.sleep(3)
 
     if "https://login.agregatoreat.ru/Account/Login" in driver.current_url:
-        while True:
-            # работает, аутентификация по эцп
-            selector = ".btn-block.mb-3"  # ".btn-block.mb-0" для госуслуг
-            if driver.find_elements(By.CSS_SELECTOR, selector):
-                driver.find_elements(By.CSS_SELECTOR, selector)[0].click()
-                break
-            else:
-                time.sleep(1)
-
+        bot.login_by_signature(driver)
         time.sleep(5)
 
-        if driver.find_elements(By.CSS_SELECTOR, "#orglist"):
-            while True:
-                if driver.find_elements(By.CSS_SELECTOR, "#orglist"):
-                    print("#orglist найден")
-                    time.sleep(1)
-                else:
-                    print("#orglist не найден")
-                    break
-
-        if driver.find_elements(By.CSS_SELECTOR, ".plain-button_light"):
-            while True:
-                if driver.find_elements(By.CSS_SELECTOR, ".plain-button_light"):
-                    full_login(driver)
-                    break
-                else:
-                    time.sleep(1)
+        bot.monitor_element_presence(driver, "#orglist")
+        bot.login_by_gosuslugi(driver)
 
     driver.get("https://agregatoreat.ru/purchases/new")
 
     #time.sleep(100000)
 
-    while True:
-        if driver.find_elements(By.CSS_SELECTOR, "#filterField-14-autocomplete"):
-            text_field1 = driver.find_elements(By.CSS_SELECTOR, "#filterField-14-autocomplete")[0]
-            # text_field1.send_keys("7708701670")  # Сюда ввести нужный ИНН
-            text_field1.send_keys(inn)
-            break
-        else:
-            time.sleep(1)
+    bot.fill_inn_field(driver, inn)
+    bot.choice_inn_popup(driver, inn)
+    bot.fill_search_text_field(driver)
 
-    while True:
-        try:
-            # работает, выбор всплывашки с введённым ИНН
-            element = driver.find_element(By.XPATH,
-                                          "//span[contains(text(), "
-                                          f"'ИНН: {inn}')]")
-            element.click()
-            break
-        except NoSuchElementException:
-            print("Элемент с текстом ИНН не найден, пробуем ещё раз...")
-            time.sleep(5)
-
-    while True:
-        # работает, наименование или номер закупки
-        try:
-            element = driver.find_element(By.ID, "searchText")
-            element.send_keys("арест")
-            break
-        except NoSuchElementException:
-            print("Элемент #searchText не найден, пробуем ещё раз...")
-            time.sleep(5)
-
-# пока не ясно для чего нужно, возможно, уже не актуально
-#     while True:
-#         if driver.find_elements(By.CSS_SELECTOR, "#pr_id_2_list"):
-#             autocomp = driver.find_elements(By.CSS_SELECTOR, "#pr_id_2_list")[0]
-#             print("#pr_id_2_list найден", autocomp)
-#             autocomp.click()
-#             break
-#         else:
-#             print("#pr_id_2_list не найден")
-#             time.sleep(1)
+    # пока не ясно для чего нужно, возможно, уже не актуально. Селектор на берёзке не нашёл.
+    # bot.wait_for_element_and_click(driver, "#pr_id_2_list"")
 
     # Фильтр по словам
     # text_field2 = driver.find_element(By.ID, "filterField-2-input")
     # text_field2.send_keys("реал")
 
-    # нажатие на кнопку Показать
-    refresh_btn = driver.find_element(By.ID, "applyFilterButton")
-    refresh_btn.click()
-    time.sleep(3)
-
-    # чтение номера лота из lot_numbers.txt, если его нет - добавление в файл и подача заявки,
-    # если есть удаление карточки лота (не должно отображаться)
-    while True:
-        if driver.find_elements(By.ID, "tradeNumber"):
-            lotNum = driver.find_element(By.ID, "tradeNumber").get_attribute("innerText")
-            with open('lot_numbers.txt', 'r') as r:
-                if lotNum in r.read():
-                    driver.execute_script("document.getElementsByClassName('card')[0].remove()")
-                else:
-                    with open('lot_numbers.txt', 'a') as f:
-                        f.write(lotNum)
-                        if driver.find_element(By.ID, "applicationSendButton"):
-                            driver.find_element(By.ID, "applicationSendButton").click()
-                        break
-        else:
-            refresh_btn.click()
-            time.sleep(1)
+    refresh_btn = bot.click_by_search(driver,3)
+    bot.action_with_lots_or_refresh(driver, refresh_btn)
 
     # time.sleep(5) # Ожидание прогрузки страницы торга
 
-    while True:
-        if driver.find_elements(By.CLASS_NAME, "fixed-filling"):
-            driver.execute_script("document.getElementsByClassName('fixed-filling')[0].remove()")
-            break
-        else:
-            time.sleep(1)
-
-    if driver.find_elements(By.CSS_SELECTOR, ".load-from-storage-btn"):
-            loadDoc = driver.find_elements(By.CSS_SELECTOR, ".load-from-storage-btn")[0]
-            loadDoc.click()
-            while True:
-                if driver.find_elements(By.CSS_SELECTOR, ".add-document-btn"):
-                    addDoc = driver.find_elements(By.CSS_SELECTOR, ".add-document-btn")[0]
-                    addDoc.click()
-                    docName = driver.find_element(By.ID, "documentEditableNameInput-0")
-                    docName.send_keys('Документы')
-                    break
-                else:
-                    time.sleep(1)
-
-    price = driver.find_element(By.ID, "lotItemPriceInput-0")
-
-    for i in range(20):
-        price.send_keys(Keys.BACKSPACE)
-
-    price.send_keys("0,01")
-
-    while True:
-        if driver.find_elements(By.CSS_SELECTOR, ".tax"):
-            driver.find_elements(By.CSS_SELECTOR, ".tax")[0].click()
-            break
-        else:
-            time.sleep(1)
+    bot.remove_date_end_application(driver)
+    bot.add_documents_from_repository(driver)
+    bot.set_price(driver)
+    bot.click_on_value_added_tax(driver)
 
     if driver.find_elements(By.CLASS_NAME, "select-tru__icon"):
-        tru = driver.find_elements(By.CLASS_NAME, "select-tru__icon")
-        tru[0].click()
+        # нашёл только в стилях
+        bot.click_by_element_from_elements(driver, "select-tru__icon", 0)
 
-        truOption = driver.find_elements(By.CLASS_NAME, "tru-description-modal__action")
-        truOption[1].click()
-
+        # этого вообще не нашёл
+        bot.click_by_element_from_elements(driver, "tru-description-modal__action", 1)
         time.sleep(2)
-        while True:
-            if driver.find_element(By.ID, "add-offer"):
-                truBtn = driver.find_element(By.ID, "add-offer")
-                truBtn.click()
-                time.sleep(1)
-                break
-            else:
-                time.sleep(1)
+
+        bot.click_on_add_offer(driver)
     else:
         time.sleep(1)
 
