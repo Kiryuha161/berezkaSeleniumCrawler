@@ -1,4 +1,5 @@
 import time
+import winsound
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -76,9 +77,9 @@ class Bot:
                 print("Элемент с текстом ИНН не найден, пробуем ещё раз...")
                 time.sleep(5)
 
-    def fill_search_text_field(self, driver):
+    def fill_search_text_field(self, driver, search_text):
         """
-        Заполнение поля поиска на веб-странице текстом "арест".
+        Заполнение поля поиска на веб-странице с указанным словом".
         :param self: Параметр бота.
         :param driver: Объект веб-драйвера Selenium, который используется для взаимодействия с веб-страницей.
         :return: Ничего не возвращает.
@@ -86,7 +87,7 @@ class Bot:
         while True:
             try:
                 element = driver.find_element(By.ID, "searchText")
-                element.send_keys("арест")
+                element.send_keys(search_text)
                 break
             except NoSuchElementException:
                 print("Элемент #searchText не найден, пробуем ещё раз...")
@@ -147,6 +148,7 @@ class Bot:
         Клик по кнопке Показать
         :param self: Параметр бота.
         :param driver: Объект веб-драйвера Selenium, который используется для взаимодействия с веб-страницей.
+        :param sleep_time: Время задержки.
         :return: Возвращает элемент с кнопкой Показать.
         """
         refresh_btn = driver.find_element(By.ID, "applyFilterButton")
@@ -173,11 +175,12 @@ class Bot:
                         with open('lot_numbers.txt', 'a') as f:
                             f.write(lotNum)
                             if driver.find_element(By.ID, "applicationSendButton"):
+                                winsound.Beep(1000, 1000)
                                 driver.find_element(By.ID, "applicationSendButton").click()
                             break
             else:
                 refresh_btn.click()
-                time.sleep(1)
+                time.sleep(2)
 
     def add_documents_from_repository(self, driver):
         """
@@ -214,21 +217,27 @@ class Bot:
             else:
                 time.sleep(1)
 
-    def set_price(self, driver):
+    def set_price(self, driver, base_price):
         """
         Установка цены первого элемента (Сперва стирает установленную по умолчанию цену)
         :param self: Параметр бота.
         :param driver: Объект веб-драйвера Selenium, который используется для взаимодействия с веб-страницей.
+        :param base_price: Базовая цена подачи цены за единицу услуги (товара)
         :return: Ничего не возвращает.
         """
-        price = driver.find_element(By.ID, "lotItemPriceInput-0")
+        price_field = driver.find_element(By.ID, "lotItemPriceInput-0")
+
         for i in range(20):
-            price.send_keys(Keys.BACKSPACE)
-        price.send_keys("0,01")
+            price_field.send_keys(Keys.BACKSPACE)
+
+        if "." in base_price:
+            price_field.send_keys(base_price.replace(".", ","))
+        else:
+            price_field.send_keys(base_price)
 
     def click_on_value_added_tax(self, driver):
         """
-        Кликает на Не облагается в колонке Задать для всех позиций НДС
+        Кликает на Не облагается в колонке Задать для всех позиций НДС.
         :param self: Параметр бота.
         :param driver: Объект веб-драйвера Selenium, который используется для взаимодействия с веб-страницей.
         :return: Ничего не возвращает.
@@ -245,8 +254,8 @@ class Bot:
         Кликает на элемент в коллекции элементов с одинаковым названием
         :param self: Параметр бота.
         :param driver: Объект веб-драйвера Selenium, который используется для взаимодействия с веб-страницей.
-        :param element: Элемент, на который нужно кликнуть
-        :param order: Порядковый номер элемента в коллекции элементов с одним и тем же названием
+        :param element: Элемент, на который нужно кликнуть.
+        :param order: Порядковый номер элемента в коллекции элементов с одним и тем же названием.
         :return: Ничего не возвращает.
         """
         if driver.find_elements(By.CLASS_NAME, element):
@@ -271,7 +280,7 @@ class Bot:
 
     def full_login(self, driver):
         """
-        Клики по кнопкам, через которые можно войти в аккаунт с помощью госуслуг
+        Клики по кнопкам, через которые можно войти в аккаунт с помощью госуслуг.
         :param self: Параметр бота
         :param driver: Объект веб-драйвера Selenium, который используется для взаимодействия с веб-страницей.
         :return: Ничего не возвращает.
