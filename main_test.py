@@ -2,13 +2,13 @@ import psutil
 import time
 import winsound
 
-from Bot import Bot
+from Classes.Bot import Bot
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
-from pynput.keyboard import Key, Controller
+from pynput.keyboard import Controller
 
 
 def kill_chrome_processes():
