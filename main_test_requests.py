@@ -10,7 +10,6 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
-
 def kill_chrome_processes():
     """
     Завершение всех запущенных процессов Google Chrome.
@@ -20,13 +19,8 @@ def kill_chrome_processes():
         if proc.info['name'] == 'chrome.exe':
             proc.kill()
 
-
 def main():
     try:
-        # inn = input("Введите ИНН: ")  # 7716642273
-        # print("В зависимости от указанной базовой цены будет происходить установка цены на лот.")
-        # base_price = input("Введите базовую цену, которую необходимо подать: ")  # 0.01 или 1 или другую для теста
-
         bot = Bot()
         request_bot = RequestBot()
         options = bot.init_options()
@@ -45,7 +39,6 @@ def main():
 
         driver.get("https://agregatoreat.ru/purchases/new")
 
-        # cookies = request_bot.get_cookies(driver)
         local_storage_items = request_bot.get_local_storage(driver)
         access_token = request_bot.get_access_token(local_storage_items)
         print(f"access_token", access_token)
@@ -53,7 +46,7 @@ def main():
         cart_id = request_bot.get_cart_id(local_storage_items)
         print(f"cart_id", cart_id)
 
-        request_bot.action_with_lots_or_refresh(local_storage_items)
+        request_bot.action_with_lots_or_refresh(access_token)
 
         time.sleep(1000000)
     except Exception as e:
@@ -62,6 +55,5 @@ def main():
         winsound.Beep(1000, 300)
 
 if __name__ == '__main__':
-    #window()
     kill_chrome_processes()
     main()

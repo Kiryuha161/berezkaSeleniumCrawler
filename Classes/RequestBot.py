@@ -10,9 +10,6 @@ from Objects.document_request import document_request_model
 class RequestBot:
     """Класс, отвечающий за работу бота, подающего предложения через запросы, а не через интерфейс."""
 
-    def __init__(self):
-        self.indexUnsuccessSearchLot = 0
-
     def get_cookies(self, driver):
         """
         Получает куки.
@@ -25,10 +22,8 @@ class RequestBot:
         for cookie in cookies:
             cookie_object = {
                 "Name": cookie["name"],
-
                 "Value": cookie["value"]
             }
-
             cookie_objects.append(cookie_object)
 
         return cookie_objects
@@ -74,9 +69,37 @@ class RequestBot:
 
         return cart_id
 
+    def send_get_request(self, url, access_token):
+        """
+        Отправка get-запроса.
+        :param url: Адрес запроса.
+        :param access_token: Докен доступа.
+        :return: Ответ на запрос или None
+        """
+        headers = get_headers(access_token)
+        response = requests.get(url, headers=headers)
 
-    def send_post_request(self, url, local_storage_items, request_model):
-        access_token = self.get_access_token(local_storage_items)
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                return data
+            except json.JSONDecodeError:
+                print("Ошибка: ответ не является валидным JSON")
+                print(response.text)
+                return None
+        else:
+            print(f"Ошибка: {response.status_code}")
+            print(response.text)
+            return None
+
+    def send_post_request(self, url, access_token, request_model=None):
+        """
+        Отправляет post-запрос.
+        :param url: Адрес запроса.
+        :param access_token: Докен доступа.
+        :param request_model: Модель запроса, передаваемая в параметры.
+        :return: Ответ на запрос или None
+        """
         headers = get_headers(access_token)
 
         response = requests.post(url, headers=headers, json=request_model)
@@ -87,15 +110,18 @@ class RequestBot:
         else:
             print(f"Ошибка: {response.status_code}")
             print(response.text)
+            return None
 
-    def find_lots(self, local_storage_items):
+    def find_lots(self, access_token):
         """
-        Отправка текста поиска лотов
-        :return: Объект с данными, найденных лотов
+        Отправка текста поиска лотов.
+        :param access_token: Докен доступа.
+        :return: Объект с данными, найденных лотов.
         """
+
         url = "https://tender-cache-api.agregatoreat.ru/api/TradeLot/list-published-trade-lots"
 
-        lots_data = self.send_post_request(url, local_storage_items, search_model)
+        lots_data = self.send_post_request(url, access_token, search_model)
 
         return lots_data
 
@@ -103,39 +129,55 @@ class RequestBot:
         print("Подача предложения")
         # TODO сделать подачу заявки
 
-    def add_documents_from_repository(self, local_storage_items):
+    def find_documents_from_repository(self, access_token):
+        """
+        Находит документы из хранилища.
+        :param access_token: Докен доступа.
+        :return: Объект с данными найденных документов.
+        """
         url = "https://registry-api.agregatoreat.ru/api/OrganizationDocuments/get-list"
 
-        documents_data = self.send_post_request(url, local_storage_items, document_request_model)
+        documents_data = self.send_post_request(url, access_token, document_request_model)
 
         return documents_data
 
-    def action_with_lots_or_refresh(self, local_storage_items):
+    def get_cart_lot(self, lot_id, access_token):
+        """
+        Получение данных о лоте (получение карточки лота)
+        :param lot_id: GUID для искомого лота.
+        :param access_token: Токен доступа.
+        :return:
+        """
+        url = f"https://tender-api.agregatoreat.ru/api/Application/new/{lot_id}"
+
+        card_lot = self.send_get_request(url, access_token)
+
+        return card_lot
+
+    def action_with_lots_or_refresh(self, access_token):
         """
         Чтение номера лота из lot_numbers.txt, если его нет - добавление в файл и подача заявки,
         если есть - удаление карточки лота. Если не находится лот, то парсинг
         :return: Ничего не возвращает.
         """
-        # TODO Заменить рекурсию на другой подход
-        lot_items_data = self.find_lots(local_storage_items)
-        if len(lot_items_data["items"]) == 0:
-            self.indexUnsuccessSearchLot += 1
-            time.sleep(2)
-            print("Новые лоты не найдены", self.indexUnsuccessSearchLot)
-            self.action_with_lots_or_refresh(local_storage_items)
-        elif len(lot_items_data["items"]) > 0:
-            trade_number = lot_items_data["items"][0]["tradeNumber"]
-            print("Найденный лот: ", trade_number)
-            with open('../lot_numbers.txt', 'r') as r:
-                if trade_number in r.read():
-                    print("Данный лот уже есть в lot_numbers.txt")
-                else:
-                    with open('../lot_numbers.txt', 'a') as f:
-                        f.write(trade_number)
-                        winsound.Beep(1000, 1000)
-                        response_document = self.add_documents_from_repository(local_storage_items)
-                        # TODO подача заявки на лот
+        while True:
+            lot_items_data = self.find_lots(access_token)
+            if len(lot_items_data["items"]) == 0:
+                print("Новые лоты не найдены")
+                time.sleep(2)
+            elif len(lot_items_data["items"]) > 0:
+                trade_number = lot_items_data["items"][0]["tradeNumber"]
+                lot_id = lot_items_data["items"][0]["id"]
+                print("Найденный лот: ", trade_number)
+                with open('lot_numbers.txt', 'r', encoding='utf-8') as r:
+                    if trade_number in r.read():
+                        print("Данный лот уже есть в lot_numbers.txt")
+                    else:
+                        with open('lot_numbers.txt', 'a', encoding='utf-8') as f:
+                            f.write(trade_number + '\n')
+                            winsound.Beep(1000, 1000)
+                            card_lot = self.get_cart_lot(lot_id, access_token)
+                            print(card_lot)
 
-
-
-
+                            # TODO подача заявки на лот
+                break
