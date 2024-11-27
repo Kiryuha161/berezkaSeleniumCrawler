@@ -47,7 +47,7 @@ def main():
         # bot.fill_inn_field(driver, inn)
         # bot.choice_inn_popup(driver, inn)
         bot.fill_search_text_field(driver, "Оказание услуг по реализации арестованного имущества -оценка -оценки "
-                                            "-оценке -оценкой -хранение -хранении -хранения -хранением")
+                                           "-оценке -оценкой -хранение -хранении -хранения -хранением")
         # bot.fill_search_text_field(driver, "100219253124100051") тест, заменить номер
 
         refresh_btn = bot.click_by_search(driver, 3)
@@ -92,6 +92,8 @@ def main():
         print(f"Произошла ошибка: {e}")
         winsound.Beep(1000, 300)
         winsound.Beep(1000, 300)
+
+
 """
 def window():
     app = QApplication(sys.argv)
@@ -124,6 +126,6 @@ def window():
 """
 
 if __name__ == '__main__':
-    #window()
+    # window()
     kill_chrome_processes()
     main()

@@ -6,6 +6,9 @@ import winsound
 from Objects.search import search_model
 from Objects.headers import get_headers
 from Objects.document_request import document_request_model
+from Objects.tax_request import get_tax
+from Objects.sign_request_model import get_sign
+
 
 class RequestBot:
     """Класс, отвечающий за работу бота, подающего предложения через запросы, а не через интерфейс."""
@@ -69,15 +72,23 @@ class RequestBot:
 
         return cart_id
 
-    def send_get_request(self, url, access_token):
+    def send_get_request(self, session, url, access_token):
         """
-        Отправка get-запроса.
+        Отправляет get-запрос.
+        :param session: Сессия requests.
         :param url: Адрес запроса.
-        :param access_token: Докен доступа.
+        :param access_token: Токен доступа.
         :return: Ответ на запрос или None
         """
         headers = get_headers(access_token)
-        response = requests.get(url, headers=headers)
+
+        start_time = time.time()
+
+        response = session.get(url, headers=headers)
+
+        end_time = time.time()
+
+        print(f"GET запрос к {url} занял {end_time - start_time:.2f} секунд")
 
         if response.status_code == 200:
             try:
@@ -92,17 +103,24 @@ class RequestBot:
             print(response.text)
             return None
 
-    def send_post_request(self, url, access_token, request_model=None):
+    def send_post_request(self, session, url, access_token, request_model=None, cookie=None):
         """
         Отправляет post-запрос.
+        :param session: Сессия requests.
         :param url: Адрес запроса.
-        :param access_token: Докен доступа.
+        :param access_token: Токен доступа.
         :param request_model: Модель запроса, передаваемая в параметры.
         :return: Ответ на запрос или None
         """
         headers = get_headers(access_token)
 
-        response = requests.post(url, headers=headers, json=request_model)
+        start_time = time.time()
+
+        response = session.post(url, headers=headers, json=request_model)
+
+        end_time = time.time()
+
+        print(f"POST запрос к {url} занял {end_time - start_time:.2f} секунд")
 
         if response.status_code == 200:
             data = response.json()
@@ -112,56 +130,88 @@ class RequestBot:
             print(response.text)
             return None
 
-    def find_lots(self, access_token):
+    def find_lots(self, session, access_token):
         """
         Отправка текста поиска лотов.
-        :param access_token: Докен доступа.
+        :param session: Сессия requests.
+        :param access_token: Токен доступа.
         :return: Объект с данными, найденных лотов.
         """
-
         url = "https://tender-cache-api.agregatoreat.ru/api/TradeLot/list-published-trade-lots"
 
-        lots_data = self.send_post_request(url, access_token, search_model)
+        lots_data = self.send_post_request(session, url, access_token, search_model)
 
         return lots_data
 
     def send_application(self):
         print("Подача предложения")
-        # TODO сделать подачу заявки
+        # TODO сделать реализацию подачи заявки
 
-    def find_documents_from_repository(self, access_token):
+    def find_documents_from_repository(self, session, access_token, cookies=None):
         """
         Находит документы из хранилища.
-        :param access_token: Докен доступа.
+        :param session: Сессия requests.
+        :param access_token: Токен доступа.
         :return: Объект с данными найденных документов.
         """
         url = "https://registry-api.agregatoreat.ru/api/OrganizationDocuments/get-list"
 
-        documents_data = self.send_post_request(url, access_token, document_request_model)
+        documents_data = self.send_post_request(session=session, url=url, access_token=access_token,
+                                                request_model=document_request_model, cookie=cookies)
 
         return documents_data
 
-    def get_cart_lot(self, lot_id, access_token):
+    def get_cart_lot(self, session, lot_id, access_token):
         """
         Получение данных о лоте (получение карточки лота)
+        :param session: Сессия requests.
         :param lot_id: GUID для искомого лота.
         :param access_token: Токен доступа.
-        :return:
+        :return: Объект с данными лота.
         """
         url = f"https://tender-api.agregatoreat.ru/api/Application/new/{lot_id}"
 
-        card_lot = self.send_get_request(url, access_token)
+        cart_lot = self.send_get_request(session, url, access_token)
 
-        return card_lot
+        return cart_lot
 
-    def action_with_lots_or_refresh(self, access_token):
+    def set_not_taxed(self, session, access_token, price):
         """
-        Чтение номера лота из lot_numbers.txt, если его нет - добавление в файл и подача заявки,
-        если есть - удаление карточки лота. Если не находится лот, то парсинг
+        Устанавливает налог на Не облагается
+        :param session: Сессия requests.
+        :param access_token: Токен доступа.
+        :param price: Цена, на которую устанавливается налог
+        :return: Объект с данными ответа.
+        """
+        url = "https://tender-api.agregatoreat.ru/api/TaxCalculation"
+        tax_request_model = get_tax(price)
+
+        tax_response = self.send_post_request(session=session, url=url, access_token=access_token, request_model=tax_request_model)
+
+        return tax_response
+
+    def get_sign_info(self, session, access_token):
+        """
+        Получает информацию о подписи
+        :param session: Сессия requests.
+        :param access_token: Токен доступа.
+        :return: Объект с данными подписи
+        """
+        url = "https://registry-api.agregatoreat.ru/api/User/self"
+
+        sign_info_response = self.send_get_request(session=session, url=url, access_token=access_token)
+
+        return sign_info_response
+
+
+    def action_with_lots_or_refresh(self, session, access_token, driver):
+        """
+        Читает номера лота из lot_numbers.txt, если его нет - добавляет в файл и подаёт заявку,
+        если есть - удаляет карточки лота. Если не находится лот, то происходит парсинг
         :return: Ничего не возвращает.
         """
         while True:
-            lot_items_data = self.find_lots(access_token)
+            lot_items_data = self.find_lots(session, access_token)
             if len(lot_items_data["items"]) == 0:
                 print("Новые лоты не найдены")
                 time.sleep(2)
@@ -169,6 +219,7 @@ class RequestBot:
                 trade_number = lot_items_data["items"][0]["tradeNumber"]
                 lot_id = lot_items_data["items"][0]["id"]
                 print("Найденный лот: ", trade_number)
+                print("GUID лота:", lot_id)
                 with open('lot_numbers.txt', 'r', encoding='utf-8') as r:
                     if trade_number in r.read():
                         print("Данный лот уже есть в lot_numbers.txt")
@@ -176,8 +227,18 @@ class RequestBot:
                         with open('lot_numbers.txt', 'a', encoding='utf-8') as f:
                             f.write(trade_number + '\n')
                             winsound.Beep(1000, 1000)
-                            card_lot = self.get_cart_lot(lot_id, access_token)
-                            print(card_lot)
+                            cart_lot = self.get_cart_lot(session, lot_id, access_token)
+                            print("Карточка лота:", cart_lot)
+                            documents = self.find_documents_from_repository(session, access_token)
+                            print("Документы:", documents)
+                            tax = self.set_not_taxed(session=session, access_token=access_token, price=0.01)
+                            print("Налог:", tax)
+                            application_id = cart_lot["info"]["id"]
+                            print("id предложения:", application_id)
+                            sign_info = self.get_sign_info(session=session, access_token=access_token)
+                            print(sign_info)
+                            thumbprint = sign_info["thumbprints"][0]
+                            print(thumbprint)
 
                             # TODO подача заявки на лот
                 break

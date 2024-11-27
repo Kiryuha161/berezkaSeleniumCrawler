@@ -1,6 +1,6 @@
 import psutil
 import time
-
+import requests
 import winsound
 
 from Classes.Bot import Bot
@@ -12,7 +12,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 def kill_chrome_processes():
     """
-    Завершение всех запущенных процессов Google Chrome.
+    Завершает все запущенные процессы Google Chrome.
     :return: ничего не возвращает.
     """
     for proc in psutil.process_iter(['pid', 'name']):
@@ -26,6 +26,8 @@ def main():
         options = bot.init_options()
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=options)
+
+        print("Бот и WebDriver проинициализированы успешно!")
 
         driver.get("https://agregatoreat.ru/lk/supplier/eat/purchases/active/all")
         time.sleep(3)
@@ -46,7 +48,8 @@ def main():
         cart_id = request_bot.get_cart_id(local_storage_items)
         print(f"cart_id", cart_id)
 
-        request_bot.action_with_lots_or_refresh(access_token)
+        with requests.Session() as session:
+            request_bot.action_with_lots_or_refresh(session, access_token, driver)
 
         time.sleep(1000000)
     except Exception as e:
