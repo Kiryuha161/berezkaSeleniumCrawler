@@ -238,7 +238,10 @@ class RequestBot:
                             sign_info = self.get_sign_info(session=session, access_token=access_token)
                             print(sign_info)
                             thumbprint = sign_info["thumbprints"][0]
-                            print(thumbprint)
+                            print("Отпечаток подписи:", thumbprint)
+
+                            # осталось выяснить, что за токен в payload к запросу подписи
+                            # лишние запросы нужно убрать
 
                             # TODO подача заявки на лот
                 break

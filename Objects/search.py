@@ -57,7 +57,7 @@ search_model = {
             "organizerRegions": [],
             "etpType": None,
             "favoriteTag": None,
-            "lotStates": [],  # 2 - новые, [] - все
+            "lotStates": [2],  # 2 - новые, [] - все
             "sort": [
                 {
                     "fieldName": "publishDate",

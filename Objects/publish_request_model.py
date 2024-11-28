@@ -1,4 +1,4 @@
-def get_publish():
+def get_publish(token):
     publish = {
         "applicationId": "b7e35ad2-f8b2-461b-b484-e2db542c369b",
         "signatures": [
@@ -15,7 +15,7 @@ def get_publish():
                 "fileId": "e7e0d97f-06f1-467f-a8d0-a4c9e6ab18c0"
             }
         ],
-        "token": "0159e548-4e64-4a9f-9910-05fcb05a823a",
+        "token": token,
         "digitalAuthorityId": None
     }
 
