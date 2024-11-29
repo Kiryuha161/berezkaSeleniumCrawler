@@ -35,6 +35,9 @@ def main():
         driver.get("https://agregatoreat.ru/lk/supplier/eat/purchases/active/all")
         time.sleep(3)
 
+        # После перехода на предыдущую страницу происходит перенаправление на другую страницу.
+        # Ниже WebDriver проверяет перенаправило ли на страниц входа, если пользователь не залогинен
+
         if "https://login.agregatoreat.ru/Account/Login" in driver.current_url:
             bot.login_by_signature(driver)
             time.sleep(5)
@@ -42,6 +45,7 @@ def main():
             bot.monitor_element_presence(driver, "#orglist")
             bot.login_by_gosuslugi(driver)
 
+        # Страница с новыми лотами (где стоит статус Подача предложения)
         driver.get("https://agregatoreat.ru/purchases/new")
 
         # bot.fill_inn_field(driver, inn)
@@ -85,7 +89,7 @@ def main():
 
         time.sleep(2)
 
-        kb = Controller()
+        # kb = Controller()
 
         time.sleep(10000)
     except Exception as e:
@@ -127,5 +131,6 @@ def window():
 
 if __name__ == '__main__':
     # window()
+    # При запущенных процессах хрома WebDriver не создаёт сессию, поэтому перед запуском бота убиваются процессы хрома
     kill_chrome_processes()
     main()

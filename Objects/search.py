@@ -10,7 +10,7 @@ search_model = {
             "isChangeDealTermsProtocolReceived": False,
             "isWinner": False,
             "isLoser": False,
-            "searchText": "",  # "Оказание услуг по реализации арестованного имущества -оценка -оценки -оценке -оценкой -хранение -хранении -хранения -хранением"
+            "searchText": "Оказание услуг по реализации арестованного имущества -оценка -оценки -оценке -оценкой -хранение -хранении -хранения -хранением",  # "Оказание услуг по реализации арестованного имущества -оценка -оценки -оценке -оценкой -хранение -хранении -хранения -хранением"
             "purchaseName": "",
             "number": None,
             "lotItemEatCodes": [],
@@ -57,7 +57,7 @@ search_model = {
             "organizerRegions": [],
             "etpType": None,
             "favoriteTag": None,
-            "lotStates": [2],  # 2 - новые, [] - все
+            "lotStates": [],  # [2] - новые, [] - все
             "sort": [
                 {
                     "fieldName": "publishDate",

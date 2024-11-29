@@ -186,7 +186,8 @@ class RequestBot:
         url = "https://tender-api.agregatoreat.ru/api/TaxCalculation"
         tax_request_model = get_tax(price)
 
-        tax_response = self.send_post_request(session=session, url=url, access_token=access_token, request_model=tax_request_model)
+        tax_response = self.send_post_request(session=session, url=url, access_token=access_token,
+                                              request_model=tax_request_model)
 
         return tax_response
 
@@ -195,7 +196,7 @@ class RequestBot:
         Получает информацию о подписи
         :param session: Сессия requests.
         :param access_token: Токен доступа.
-        :return: Объект с данными подписи
+        :return: Объект с данными подписи.
         """
         url = "https://registry-api.agregatoreat.ru/api/User/self"
 
@@ -227,13 +228,17 @@ class RequestBot:
                         with open('lot_numbers.txt', 'a', encoding='utf-8') as f:
                             f.write(trade_number + '\n')
                             winsound.Beep(1000, 1000)
-                            cart_lot = self.get_cart_lot(session, lot_id, access_token)
-                            print("Карточка лота:", cart_lot)
-                            documents = self.find_documents_from_repository(session, access_token)
-                            print("Документы:", documents)
+
+                            # Не понятно как передать в эту карточку значения некоторых свойств
+                            lot_full_info = self.get_cart_lot(session, lot_id, access_token)
+                            print("Карточка лота:", lot_full_info)
+                            account_documents = self.find_documents_from_repository(session, access_token)
+                            document = account_documents["items"][0]
+                            print("Документы:", account_documents)
+                            print("Документ:", document)
                             tax = self.set_not_taxed(session=session, access_token=access_token, price=0.01)
                             print("Налог:", tax)
-                            application_id = cart_lot["info"]["id"]
+                            application_id = lot_full_info["info"]["id"]
                             print("id предложения:", application_id)
                             sign_info = self.get_sign_info(session=session, access_token=access_token)
                             print(sign_info)
@@ -241,7 +246,6 @@ class RequestBot:
                             print("Отпечаток подписи:", thumbprint)
 
                             # осталось выяснить, что за токен в payload к запросу подписи
-                            # лишние запросы нужно убрать
 
                             # TODO подача заявки на лот
                 break
