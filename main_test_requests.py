@@ -1,23 +1,25 @@
-import psutil
 import time
+
+import psutil
 import requests
 import winsound
-
-from Classes.Bot import Bot
-from Classes.RequestBot import RequestBot
-
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
+from Classes.Bot import Bot
+from Classes.RequestBot import RequestBot
+
+
 def kill_chrome_processes():
     """
     Завершает все запущенные процессы Google Chrome.
-    :return: ничего не возвращает.
+    :return: Ничего не возвращает.
     """
     for proc in psutil.process_iter(['pid', 'name']):
         if proc.info['name'] == 'chrome.exe':
             proc.kill()
+
 
 def main():
     try:
@@ -43,10 +45,10 @@ def main():
 
         local_storage_items = request_bot.get_local_storage(driver)
         access_token = request_bot.get_access_token(local_storage_items)
-        print(f"access_token", access_token)
+        print(f"{access_token=}")
 
         cart_id = request_bot.get_cart_id(local_storage_items)
-        print(f"cart_id", cart_id)
+        print(f"{cart_id=}")
 
         with requests.Session() as session:
             request_bot.action_with_lots_or_refresh(session, access_token, driver)
@@ -56,6 +58,7 @@ def main():
         print(f"Произошла ошибка: {e}")
         winsound.Beep(1000, 300)
         winsound.Beep(1000, 300)
+
 
 if __name__ == '__main__':
     kill_chrome_processes()

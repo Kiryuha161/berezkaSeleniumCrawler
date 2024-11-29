@@ -50,6 +50,8 @@ class Bot:
         веб-драйвера.
         """
         options = Options()
+        options.add_argument("--disable-gpu")
+        options.add_argument("--no-sandbox")
         options.add_argument(r"--user-data-dir=C:\Users\User\AppData\Local\Google\Chrome\User Data")
         options.add_argument(r'--profile-directory=Default')
         options.add_extension(r'./CryptoPro-Extension-for-CAdES-Browser-Plug-in-Chrome.crx')
@@ -68,9 +70,11 @@ class Bot:
         """
         while True:
             try:
-                element = driver.find_element(By.XPATH,
-                                              "//span[contains(text(), "
-                                              f"'ИНН: {inn}')]")
+                element = driver.find_element(
+                    By.XPATH,
+                    "//span[contains(text(), "
+                    f"'ИНН: {inn}')]"
+                )
                 element.click()
                 break
             except NoSuchElementException:
@@ -79,7 +83,7 @@ class Bot:
 
     def fill_search_text_field(self, driver, search_text):
         """
-        Заполняет поля поиска на веб-странице с указанным словом".
+        Заполняет поля поиска на веб-странице с указанным словом.
         :param self: Параметр бота.
         :param driver: Объект веб-драйвера Selenium, который используется для взаимодействия с веб-страницей.
         :return: Ничего не возвращает.
@@ -227,7 +231,7 @@ class Bot:
         """
         price_field = driver.find_element(By.ID, "lotItemPriceInput-0")
 
-        for i in range(20):
+        for _ in range(20):
             price_field.send_keys(Keys.BACKSPACE)
 
         if "." in base_price:
@@ -286,9 +290,9 @@ class Bot:
         :return: Ничего не возвращает.
         """
         while True:
-            if driver.find_elements(By.CSS_SELECTOR, ".plain-button_light") and \
-                    driver.find_elements(By.CSS_SELECTOR, ".plain-button_light")[1].get_attribute(
-                        "innerText") == "Эл. подпись":
+            elements = driver.find_elements(By.CSS_SELECTOR, ".plain-button_light")
+
+            if elements and elements[1].get_attribute("innerText") == "Эл. подпись":
                 driver.find_elements(By.CSS_SELECTOR, ".plain-button_light")[1].click()
                 while True:
                     if driver.find_elements(By.CSS_SELECTOR, ".plain-button_wide"):

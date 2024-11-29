@@ -1,37 +1,28 @@
 import json
-import requests
 import time
+
 import winsound
 
-from Objects.search import search_model
-from Objects.headers import get_headers
 from Objects.document_request import document_request_model
+from Objects.headers import get_headers
+from Objects.search import search_model
 from Objects.tax_request import get_tax
-from Objects.sign_request_model import get_sign
 
 
 class RequestBot:
     """Класс, отвечающий за работу бота, подающего предложения через запросы, а не через интерфейс."""
 
-    def get_cookies(self, driver):
+    @staticmethod
+    def get_cookies(driver):
         """
         Получает куки.
         :param driver: Экземпляр веб-драйвера Selenium, используемый для взаимодействия с веб-страницей.
         :return: Объект с куки
         """
-        cookies = list(driver.get_cookies())
-        cookie_objects = []
+        return [{"Name": cookie["name"], "Value": cookie["value"]} for cookie in driver.get_cookies()]
 
-        for cookie in cookies:
-            cookie_object = {
-                "Name": cookie["name"],
-                "Value": cookie["value"]
-            }
-            cookie_objects.append(cookie_object)
-
-        return cookie_objects
-
-    def get_local_storage(self, driver):
+    @staticmethod
+    def get_local_storage(driver):
         """
         Получить значения из локального хранилища.
         :param driver: Экземпляр веб-драйвера Selenium, используемый для взаимодействия с веб-страницей.
@@ -45,11 +36,10 @@ class RequestBot:
                 }
                 return items;
                 """
-        local_storage_items = driver.execute_script(script)
+        return driver.execute_script(script)
 
-        return local_storage_items
-
-    def get_access_token(self, local_storage_items):
+    @staticmethod
+    def get_access_token(local_storage_items):
         """
         Получает токен доступа.
         :param local_storage_items: Объект со всеми значениями локального хранилища.
@@ -57,22 +47,19 @@ class RequestBot:
         """
         authorization_data = local_storage_items['0-eat_ui']
         authorization_data_dict = json.loads(authorization_data)
-        authn_result = authorization_data_dict['authnResult']
-        token_access = authn_result['access_token']
+        return authorization_data_dict['authnResult']['access_token']
 
-        return token_access
-
-    def get_cart_id(self, local_storage_items):
+    @staticmethod
+    def get_cart_id(local_storage_items):
         """
         Получение id карточки лота
         :param local_storage_items: Объект со всеми значениями локального хранилища.
         :return: Токен доступа.
         """
-        cart_id = local_storage_items['cart_id']
+        return local_storage_items['cart_id']
 
-        return cart_id
-
-    def send_get_request(self, session, url, access_token):
+    @staticmethod
+    def send_get_request(session, url, access_token):
         """
         Отправляет get-запрос.
         :param session: Сессия requests.
@@ -91,7 +78,7 @@ class RequestBot:
         print(f"GET запрос к {url} занял {end_time - start_time:.2f} секунд")
 
         if response.status_code == 200:
-            try:
+            try:  # TOTO: возможно не надо
                 data = response.json()
                 return data
             except json.JSONDecodeError:
@@ -125,10 +112,10 @@ class RequestBot:
         if response.status_code == 200:
             data = response.json()
             return data
-        else:
-            print(f"Ошибка: {response.status_code}")
-            print(response.text)
-            return None
+
+        print(f"Ошибка: {response.status_code}")
+        print(response.text)
+        return None
 
     def find_lots(self, session, access_token):
         """
@@ -138,10 +125,7 @@ class RequestBot:
         :return: Объект с данными, найденных лотов.
         """
         url = "https://tender-cache-api.agregatoreat.ru/api/TradeLot/list-published-trade-lots"
-
-        lots_data = self.send_post_request(session, url, access_token, search_model)
-
-        return lots_data
+        return self.send_post_request(session, url, access_token, search_model)
 
     def send_application(self):
         print("Подача предложения")
@@ -156,10 +140,13 @@ class RequestBot:
         """
         url = "https://registry-api.agregatoreat.ru/api/OrganizationDocuments/get-list"
 
-        documents_data = self.send_post_request(session=session, url=url, access_token=access_token,
-                                                request_model=document_request_model, cookie=cookies)
-
-        return documents_data
+        return self.send_post_request(
+            session=session,
+            url=url,
+            access_token=access_token,
+            request_model=document_request_model,
+            cookie=cookies
+        )
 
     def get_cart_lot(self, session, lot_id, access_token):
         """
@@ -170,10 +157,7 @@ class RequestBot:
         :return: Объект с данными лота.
         """
         url = f"https://tender-api.agregatoreat.ru/api/Application/new/{lot_id}"
-
-        cart_lot = self.send_get_request(session, url, access_token)
-
-        return cart_lot
+        return self.send_get_request(session, url, access_token)
 
     def set_not_taxed(self, session, access_token, price):
         """
@@ -185,10 +169,12 @@ class RequestBot:
         """
         url = "https://tender-api.agregatoreat.ru/api/TaxCalculation"
         tax_request_model = get_tax(price)
-
-        tax_response = self.send_post_request(session=session, url=url, access_token=access_token, request_model=tax_request_model)
-
-        return tax_response
+        return self.send_post_request(
+            session=session,
+            url=url,
+            access_token=access_token,
+            request_model=tax_request_model
+        )
 
     def get_sign_info(self, session, access_token):
         """
@@ -199,10 +185,7 @@ class RequestBot:
         """
         url = "https://registry-api.agregatoreat.ru/api/User/self"
 
-        sign_info_response = self.send_get_request(session=session, url=url, access_token=access_token)
-
-        return sign_info_response
-
+        return self.send_get_request(session=session, url=url, access_token=access_token)
 
     def action_with_lots_or_refresh(self, session, access_token, driver):
         """
