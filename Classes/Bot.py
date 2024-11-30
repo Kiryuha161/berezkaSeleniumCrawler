@@ -50,21 +50,9 @@ class Bot:
         веб-драйвера.
         """
         options = Options()
-        options.add_argument("--no-sandbox")
         options.add_argument(r"--user-data-dir=C:\Users\User\AppData\Local\Google\Chrome\User Data")
         options.add_argument(r'--profile-directory=Default')
         options.add_extension(r'./CryptoPro-Extension-for-CAdES-Browser-Plug-in-Chrome.crx')
-
-        # Дополнительные параметры для повышения производительности
-        options.add_argument("--disable-software-rasterizer")  # Отключение программного рендеринга
-        options.add_argument("--disable-dev-shm-usage")  # Отключение использования /dev/shm
-        options.add_argument("--disable-logging")  # Отключение логирования
-        options.add_argument("--disable-features=VizDisplayCompositor")  # Отключение визуальных фич
-
-        options.add_argument("--disable-plugins")  # Отключает все плагины в браузере
-
-        # Отключение всех расширений, которые явно добавлены с помощью --load-extension # noqa
-        options.add_argument("--disable-extensions")
 
         options.page_load_strategy = 'normal'
 

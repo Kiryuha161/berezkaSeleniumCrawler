@@ -37,7 +37,7 @@ def main():
         time.sleep(3)
 
         # После перехода на предыдущую страницу происходит перенаправление на другую страницу.
-        # Ниже WebDriver проверяет перенаправило ли на страниц входа, если пользователь не залогинен
+        # Ниже WebDriver проверяет, перенаправило ли на страницу входа, если пользователь не залогинен
 
         if "https://login.agregatoreat.ru/Account/Login" in driver.current_url:
             bot.login_by_signature(driver)
@@ -56,7 +56,7 @@ def main():
         cart_id = request_bot.get_cart_id(local_storage_items)
         print(f"{cart_id=}")
 
-        # Метод, где происходят  все основные действия с лотами
+        # Метод, где происходят все основные действия с лотами
         with requests.Session() as session:
             request_bot.action_with_lots_or_refresh(session, access_token, driver)
 
