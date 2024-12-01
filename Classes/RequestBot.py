@@ -1,7 +1,10 @@
 import json
+import re
 import time
+from datetime import datetime
+from urllib.parse import urlsplit, parse_qs
 
-import winsound
+import websockets
 
 from Objects.document_request import document_request_model
 from Objects.headers import get_headers
@@ -59,7 +62,7 @@ class RequestBot:
         return local_storage_items['cart_id']
 
     @staticmethod
-    def send_get_request(session, url, access_token):
+    def send_get_request(session, url, access_token) -> dict | None:
         """
         Отправляет get-запрос.
         :param session: Сессия requests.
@@ -85,7 +88,7 @@ class RequestBot:
         return
 
     @staticmethod
-    def send_post_request(session, url, access_token, json_data=None, cookie=None):
+    def send_post_request(session, url, access_token, json_data=None, cookie=None) -> dict | None:
         """
         Отправляет post-запрос.
         :param session: Сессия requests.
@@ -195,6 +198,81 @@ class RequestBot:
         }
         return self.send_post_request(session=session, url=url, access_token=access_token, json_data=json_data)
 
+    def get_ws_connection_token(self, session, access_token):
+        url = "https://signalr.agregatoreat.ru/AuthorizedHub/Negotiate?v=1"
+        return self.send_get_request(session=session, url=url, access_token=access_token)
+
+    def parse_args_new_notificatios(self, arguments):
+        result = []
+        for arg in arguments:
+            r = re.search(r"\d{18}", arg)
+            if r:
+                result.append(r[0])
+        return result
+    def listen_websockets(self, credentials):
+        wss_url = (
+            f"wss://signalr.agregatoreat.ru/AuthorizedHub?id={credentials['id']}&v={credentials['v']}"
+            f"&access_token={credentials['token']}"
+        )
+        
+        print(f'Попытка запустить обмен по websockets')
+        with websockets.connect(wss_url) as websocket:
+            print(
+                'Соединение по websockets прошло успешно. Пытаемся отправить первое сообщение -> {"protocol":"json","version":1}'  # noqa
+            )
+            websocket.send('{"protocol":"json","version":1}\x1e')
+            print('Первое сообщение отправлено. Ждем ответ')
+            response = websocket.recv()
+            print(f'Ответ получен {response}')
+            print(f'Переходим в бесконечный цикл обмена сообщениями')
+            while True:
+                raw_response = websocket.recv()
+                now = datetime.now()
+                print(f'Получили сырое сообщение -> {raw_response}')
+                try:
+                    print('Парсим сообщение')
+                    response = json.loads(raw_response.replace('\x1e', ''))
+                    print(f"\nresponse")
+                    if response['type'] == 6:
+                        print('Получили служебное сообщение отправляем ответ <- {"type":6}')
+                        websocket.send('{"type":6}\x1e')
+                    elif response['type'] == 1 and response['target'] == 'NewInternalNotificationCame':
+                        print('Получили сообщение о публикации нового конкурса. Парсим номер конкурса!')
+                        list_number_procedure = self.parse_args_new_notificatios(response['arguments'])
+                        print(f'Найдены сообщение о публикации следующих процедур {list_number_procedure}')
+                        # for order in list_number_procedure:
+                        #     callback(order, now)
+                    else:
+                        print('Ничего интересного пропускаем')
+
+                except Exception as ex:
+                    print("Ошибка", ex)
+
+    @staticmethod
+    def get_websockets_from_selenium(driver) -> dict[str, str] | None:
+        """
+        Получение данных из логов, для запроса к вебсокету
+        :param driver:
+        :return: 
+        """
+        print("Получаем сообщения об авторизации webSocket из лога браузера")
+        result = []
+        for wsData in driver.get_log('performance'):
+            wsJson = json.loads((wsData['message']))
+            if wsJson["message"]["method"] == "Network.webSocketCreated":
+                url = urlsplit(wsJson["message"]["params"]["url"])
+                if (
+                        'signalr.agregatoreat.ru'.upper() in url.netloc.upper()
+                        and 'AuthorizedHub'.upper() in url.path.upper()
+                ):
+                    query = parse_qs(url.query)
+                    print(f"Собраны все запросы на соединения websockets -> {result}")
+                    return {
+                            'id': query.get('id', [''])[0],
+                            'v': query.get('v', [''])[0],
+                            'access_token': query.get('access_token', [''])[0],
+                        }
+
     def action_with_lots_or_refresh(self, session, access_token, driver):
         """
         Читает номера лота из lot_numbers.txt, если его нет - добавляет в файл и подаёт заявку,
@@ -202,85 +280,83 @@ class RequestBot:
         :return: Ничего не возвращает.
         """
 
-        last_item_id = None  # переменная для хранения последнего лота
-        while True:
+        # TODO: разобраться с вебсокетами
+        resp = self.get_ws_connection_token(session, access_token)
+        print(f"Информация для доступа к вебсокету {resp}")
+        ws_connection_token = resp["connectionId"]
+        print(f"Токен вебсокету {ws_connection_token}")
 
+        self.listen_websockets({'id': access_token, 'v': 1, 'token': ws_connection_token})  # TODO: Нужно не получать инфу о новых лотах, а получить токен
+
+        self.get_websockets_from_selenium(driver)
+
+        last_item_id = []  # переменная для хранения выкупленных лотов
+        while True:
             st = time.time()
-            start_time = time.time()
 
             items: list[dict] = self.find_lots(session, access_token)["items"]
 
-            print(f"Часть работы, поиск лотов {time.time() - start_time:.4f} секунд")
-
             if not items:
                 print("Новые лоты не найдены")
-                time.sleep(2)
+                time.sleep(1)
                 continue
 
-            # будет обрабатываться всегда первый ... или это не проблема ?
             buy_item = None  # лот который можно купить
-            need_continue = False  # переменная для прерывания цикла
             for item in items:
-                # Если итерация дошла до уже исследованного Лота
-                if item["id"] == last_item_id:
-                    need_continue = True
-                    break
+                # Если лот уже был выкуплен нами
+                if item["id"] in last_item_id:
+                    continue
 
                 # проверка, что есть товары, что бы в дальнейшем предотвратить ошибку
                 items = item["lotItems"]
                 if not items:
-                    break
+                    continue
 
-                need_continue_2 = False  # переменная для прерывания цикла
+                need_continue = False  # переменная для прерывания цикла
 
                 # проверка, что у всех товаров Лота можно отредактировать цену
                 for lot_item in items:
                     if lot_item["priceOption"] == 2:  # 2 означает что нельзя изменить цену, 1 - что можно
-                        need_continue_2 = True
+                        need_continue = True
                         break
 
-                if need_continue_2:
+                if need_continue:
                     continue
 
                 # Этот лот можно купить
                 buy_item = item
                 break
 
-            if need_continue:
+            if not buy_item:
                 print("Новые лоты не найдены")
-                time.sleep(2)
+                time.sleep(1)
                 continue
 
             trade_number = buy_item["tradeNumber"]
             lot_id = buy_item["id"]
             print("\nНайденный лот: ", trade_number)
             print("GUID лота:", lot_id)
-            start_time = time.time()
 
             # Не понятно как передать в эту карточку значения некоторых свойств,
             # возможно следующие запросы меняют это значение в базе данных?
             lot_full_info = self.get_cart_lot(session, lot_id, access_token)
             print("Карточка лота:", lot_full_info)
+            if not lot_full_info:
+                time.sleep(1)
+                continue
+
             application_id = lot_full_info["info"]["id"]
             print("id предложения:", application_id)
 
-            print(f"Часть работы, инфа о лоте {time.time() - start_time:.4f} секунд")
-            start_time = time.time()
-
-            account_documents = self.find_documents_from_repository(session, access_token)
+            account_documents = self.find_documents_from_repository(session, access_token)  # TODO хз как работает
             document = account_documents["items"][0]
             print("Документы:", account_documents)
             print("Документ:", document)
-            print(f"Часть работы, поиск документов {time.time() - start_time:.4f} секунд")
-            start_time = time.time()
 
-            tax = self.set_not_taxed(session=session, access_token=access_token, price=0.01)
+            tax = self.set_not_taxed(session=session, access_token=access_token, price=0.01)  # TODO хз как работает
             print("Налог:", tax)
-            print(f"Часть работы, установка налога {time.time() - start_time:.4f} секунд")
-            start_time = time.time()
 
             sign_info = self.get_sign_info(session=session, access_token=access_token)
-            print(f"Часть работы, инфа о подписи {time.time() - start_time:.4f} секунд")
             print(sign_info)
             thumbprint = sign_info["thumbprints"][0]
             print("Отпечаток подписи:", thumbprint)
@@ -298,7 +374,7 @@ class RequestBot:
             #     oid # TODO: нужно получит как то
             # )
 
-            # Меняем переменную на последний купленный лот
-            last_item_id = buy_item["id"]
+            # Добавляем в переменную последний купленный лот
+            last_item_id.append(lot_id)
 
-            break  # В проде нужно будет удалить
+            break  # TODO: В проде нужно будет удалить

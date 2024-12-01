@@ -54,6 +54,8 @@ class Bot:
         options.add_argument(r'--profile-directory=Default')
         options.add_extension(r'./CryptoPro-Extension-for-CAdES-Browser-Plug-in-Chrome.crx')
 
+        options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
+
         options.page_load_strategy = 'normal'
 
         return options
