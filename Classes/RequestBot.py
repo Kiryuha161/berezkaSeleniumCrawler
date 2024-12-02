@@ -1,10 +1,11 @@
+import asyncio
 import json
-import re
 import time
-from datetime import datetime
 from urllib.parse import urlsplit, parse_qs
 
 import websockets
+from requests import Session
+from selenium.webdriver.chrome.webdriver import WebDriver
 
 from Objects.document_request import document_request_model
 from Objects.headers import get_headers
@@ -42,7 +43,7 @@ class RequestBot:
         return driver.execute_script(script)
 
     @staticmethod
-    def get_access_token(local_storage_items):
+    def get_access_token(local_storage_items) -> str:
         """
         Получает токен доступа.
         :param local_storage_items: Объект со всеми значениями локального хранилища.
@@ -169,6 +170,93 @@ class RequestBot:
             json_data=tax_request_model
         )
 
+    def set_document(self, session, access_token, document):
+        """
+        Устанавливает документ в лот
+        :param session: Сессия requests.
+        :param access_token: Токен доступа.
+        :param document: Документ.
+        :return: Объект с данными ответа.
+        """
+        url = "https://tender-api.agregatoreat.ru/api/Application/draft?validate=false"
+
+        # TODO: !!! Пример из запроса, а не корректные данные !!!
+        # для этого заказа, если важно https://agregatoreat.ru/purchases/application/price-request/b5214d7f-dfd7-4926-a7dc-23dcafbed771  # noqa
+        json_data = {
+            "tradeLotId": "bb0a3250-0ae0-45ca-a69a-354235625beb",
+            "applicationId": "d6d34658-7a55-46b1-8cae-6d128a748b2b",
+            "contactPerson": "Кузнецова  Ксения Геннадиевна",
+            "contactData": "тел. +7(989)621-05-03, sperik_ice@mail.ru",
+            "isAgreeToSupply": True,
+            "deliveryPrice": 0,
+            "documents": [
+                # { # Заполнил данными документа, что смог
+                #     "id": document["id"],
+                #     "type": 0,  # TODO: хз
+                #     "size": document["fileSize"],
+                #     "name": document["fileName"],
+                #     "version": None,
+                #     "isActual": None,
+                #     "typeName": None,
+                #     "documentName": None,
+                #     "createdOn": "",  # TODO: текущее время
+                #     "sendDate": None
+                # }
+                {
+                    "id": "a87c577c-97bf-4735-82ba-e890663c5d0e",
+                    "type": 0,
+                    "size": 6356006,
+                    "name": "Заявки Транстех Березка.zip",
+                    "version": None,
+                    "isActual": None,
+                    "typeName": None,
+                    "documentName": None,
+                    "createdOn": "2024-12-02T20:12:22Z",
+                    "sendDate": None
+                }
+            ],
+            "items": [
+                {
+                    "quotation": 15500,
+                    "quantity": 38,
+                    "tradeLotItemOrder": 0,
+                    "taxPercent": 1000,
+                    "name": "Оказание услуг по переезду",
+                    "offerId": "00000000-0000-0000-0000-000000000000",
+                    "offerNumber": None,
+                    "countryOfOrigin": None,
+                    "isPriceWithTax": True,
+                    "calculatedTax": 0,
+                    "sum": 589000,
+                    "offerName": None,
+                    "description": "В соответствии с проектом контракта ",
+                    "offerDescription": None,
+                    "priceOption": 1,
+                    "requireOfferSpecification": False,
+                    "russianItemsRegistryNum": None,
+                    "russianItemsRegistry": None,
+                    "isSelected": False,
+                    "referenceOfferId": None,
+                    "referenceOfferNumber": None,
+                    "isReference": False
+                }
+            ],
+            "applicationSubType": 0,
+            "applicationPriceHidden": False,
+            "sessionConclusionContractPrice": None,
+            "decreasePercent": None,
+            "unitPriceSum": 15500,
+            "calculatedTax": 0,
+            "taxPercent": 0
+        }
+
+        return self.send_post_request(
+            session=session,
+            url=url,
+            access_token=access_token,
+            json_data=json_data
+        )
+
     def get_sign_info(self, session, access_token):
         """
         Получает информацию о подписи
@@ -198,48 +286,66 @@ class RequestBot:
         }
         return self.send_post_request(session=session, url=url, access_token=access_token, json_data=json_data)
 
-    def get_ws_connection_token(self, session, access_token):
-        url = "https://signalr.agregatoreat.ru/AuthorizedHub/Negotiate?v=1"
-        return self.send_get_request(session=session, url=url, access_token=access_token)
+    @staticmethod
+    def get_websockets_from_selenium(driver) -> dict[str, str] | None:
+        """
+        Получение данных из логов, для запроса к вебсокету
+        :param driver:
+        :return: Словарь с данными, для последующего запроса к вебсокету
+        """
+        print("\nПолучаем сообщения об авторизации webSocket из лога браузера")
+        st = time.time()
 
-    def parse_args_new_notificatios(self, arguments):
-        result = []
-        for arg in arguments:
-            r = re.search(r"\d{18}", arg)
-            if r:
-                result.append(r[0])
-        return result
-    def listen_websockets(self, credentials):
+        for wsData in driver.get_log('performance'):
+            wsJson = json.loads((wsData['message']))
+
+            if wsJson["message"]["method"] == "Network.webSocketCreated":
+                url = urlsplit(wsJson["message"]["params"]["url"])
+                if (
+                        'signalr.agregatoreat.ru'.upper() in url.netloc.upper()
+                        and 'AuthorizedHub'.upper() in url.path.upper()
+                ):
+                    query = parse_qs(url.query)
+
+                    print(f"Работа по поиску данных для вебсокета: {time.time() - st:.4f} секунд")
+                    return {
+                        'id': query.get('id', [''])[0],
+                        'v': query.get('v', [''])[0],
+                        'access_token': query.get('access_token', [''])[0],
+                    }
+
+    @staticmethod
+    async def listen_websockets(credentials):
         wss_url = (
             f"wss://signalr.agregatoreat.ru/AuthorizedHub?id={credentials['id']}&v={credentials['v']}"
-            f"&access_token={credentials['token']}"
+            f"&access_token={credentials['access_token']}"
         )
-        
-        print(f'Попытка запустить обмен по websockets')
-        with websockets.connect(wss_url) as websocket:
+
+        print(f'\nПопытка запустить обмен по websockets')
+        async with websockets.connect(wss_url) as websocket:
             print(
-                'Соединение по websockets прошло успешно. Пытаемся отправить первое сообщение -> {"protocol":"json","version":1}'  # noqa
+                'Соединение по websockets прошло успешно. '
+                'Попытка отправить первое сообщение -> {"protocol":"json","version":1}'
             )
-            websocket.send('{"protocol":"json","version":1}\x1e')
+            await websocket.send('{"protocol":"json","version":1}\x1e')
             print('Первое сообщение отправлено. Ждем ответ')
-            response = websocket.recv()
+            response = await websocket.recv()
             print(f'Ответ получен {response}')
             print(f'Переходим в бесконечный цикл обмена сообщениями')
             while True:
-                raw_response = websocket.recv()
-                now = datetime.now()
+                raw_response = await websocket.recv()
                 print(f'Получили сырое сообщение -> {raw_response}')
                 try:
                     print('Парсим сообщение')
                     response = json.loads(raw_response.replace('\x1e', ''))
-                    print(f"\nresponse")
+                    print(f"\n{response=}")
                     if response['type'] == 6:
                         print('Получили служебное сообщение отправляем ответ <- {"type":6}')
-                        websocket.send('{"type":6}\x1e')
-                    elif response['type'] == 1 and response['target'] == 'NewInternalNotificationCame':
-                        print('Получили сообщение о публикации нового конкурса. Парсим номер конкурса!')
-                        list_number_procedure = self.parse_args_new_notificatios(response['arguments'])
-                        print(f'Найдены сообщение о публикации следующих процедур {list_number_procedure}')
+                        await websocket.send('{"type":6}\x1e')
+                    elif response['type'] == 1 and 'arguments' in response:
+                        print(f'Получили сообщение о различных токенах лота {response["arguments"]}')
+                        # TODO: вот тут что-то надо делать
+
                         # for order in list_number_procedure:
                         #     callback(order, now)
                     else:
@@ -248,49 +354,44 @@ class RequestBot:
                 except Exception as ex:
                     print("Ошибка", ex)
 
-    @staticmethod
-    def get_websockets_from_selenium(driver) -> dict[str, str] | None:
+    def action_with_lots_or_refresh(self, session: Session, access_token: str, driver: WebDriver):
         """
-        Получение данных из логов, для запроса к вебсокету
-        :param driver:
-        :return: 
-        """
-        print("Получаем сообщения об авторизации webSocket из лога браузера")
-        result = []
-        for wsData in driver.get_log('performance'):
-            wsJson = json.loads((wsData['message']))
-            if wsJson["message"]["method"] == "Network.webSocketCreated":
-                url = urlsplit(wsJson["message"]["params"]["url"])
-                if (
-                        'signalr.agregatoreat.ru'.upper() in url.netloc.upper()
-                        and 'AuthorizedHub'.upper() in url.path.upper()
-                ):
-                    query = parse_qs(url.query)
-                    print(f"Собраны все запросы на соединения websockets -> {result}")
-                    return {
-                            'id': query.get('id', [''])[0],
-                            'v': query.get('v', [''])[0],
-                            'access_token': query.get('access_token', [''])[0],
-                        }
-
-    def action_with_lots_or_refresh(self, session, access_token, driver):
-        """
-        Читает номера лота из lot_numbers.txt, если его нет - добавляет в файл и подаёт заявку,
-        если есть - удаляет карточки лота. Если не находится лот, то происходит парсинг
-        :return: Ничего не возвращает.
+        Парсинг и выкуп лотов.
+        Если лота нет среди purchased_lots и у него не фиксированная цена, то идут запросы для подачи заявки за 0.01.
+        :return: Ничего
         """
 
-        # TODO: разобраться с вебсокетами
-        resp = self.get_ws_connection_token(session, access_token)
-        print(f"Информация для доступа к вебсокету {resp}")
-        ws_connection_token = resp["connectionId"]
-        print(f"Токен вебсокету {ws_connection_token}")
+        ws_connection = self.get_websockets_from_selenium(driver)
+        print(f"Информация для доступа к вебсокету {ws_connection}")
 
-        self.listen_websockets({'id': access_token, 'v': 1, 'token': ws_connection_token})  # TODO: Нужно не получать инфу о новых лотах, а получить токен
+        # TODO: вебсокет почему то не всегда с первой попытки запускается
 
-        self.get_websockets_from_selenium(driver)
+        # После какого либо действия в лоте, например установления цены или прикрепить файл, сокет будет периодические
+        # слать что-то типо такого
+        # {"type":1,"target":"ApplicationDraftSaved","arguments":["9893e5e4-a909-4d6b-9786-3772f4cdcff1","f399e1ac-a297-4c86-a31f-c080ca35bf33"]}
+        # где один из аргументов (вроде бы последний но это не точно), это token для data-for-sign
 
-        last_item_id = []  # переменная для хранения выкупленных лотов
+        # TODO: Либо нужно вебсокеты запускать где-то как-то отдельно и читать что там происходит,
+        #  либо перенести функцию по чтению сообщений в вебсокете внутрь цикла, после всех действий в лоте
+
+        # Запуск асинхронной функции
+        asyncio.run(
+            self.listen_websockets(
+                {
+                    'id': ws_connection["id"],
+                    'v': ws_connection["v"],
+                    'access_token': ws_connection["access_token"]
+                }
+            )
+        )
+
+        # Документ
+        account_documents = self.find_documents_from_repository(session, access_token)  # TODO хз как работает
+        document = account_documents["items"][0]
+        print("Документы:", account_documents)
+        print("Документ:", document)
+
+        purchased_lots = []  # переменная для хранения выкупленных лотов
         while True:
             st = time.time()
 
@@ -304,13 +405,15 @@ class RequestBot:
             buy_item = None  # лот который можно купить
             for item in items:
                 # Если лот уже был выкуплен нами
-                if item["id"] in last_item_id:
+                if item["id"] in purchased_lots:
                     continue
 
                 # проверка, что есть товары, что бы в дальнейшем предотвратить ошибку
                 items = item["lotItems"]
                 if not items:
                     continue
+
+                # TODO: можно попробовать добавить проверку на то выкупил ли уже кто нибудь лот по минимальной цене (len(items) * 0.01)  # noqa
 
                 need_continue = False  # переменная для прерывания цикла
 
@@ -348,22 +451,15 @@ class RequestBot:
             application_id = lot_full_info["info"]["id"]
             print("id предложения:", application_id)
 
-            account_documents = self.find_documents_from_repository(session, access_token)  # TODO хз как работает
-            document = account_documents["items"][0]
-            print("Документы:", account_documents)
-            print("Документ:", document)
+            self.set_document(session=session, access_token=access_token, document=document)  # TODO ОБЯЗАТЕЛЬНО ДОДЕЛАТЬ
 
             tax = self.set_not_taxed(session=session, access_token=access_token, price=0.01)  # TODO хз как работает
             print("Налог:", tax)
 
-            sign_info = self.get_sign_info(session=session, access_token=access_token)
+            sign_info = self.get_sign_info(session=session, access_token=access_token)  # TODO а нужно ли ?
             print(sign_info)
             thumbprint = sign_info["thumbprints"][0]
             print("Отпечаток подписи:", thumbprint)
-
-            print(f"Общая работа {time.time() - st:.4f} секунд")
-
-            # TODO: осталось выяснить, что за токен в payload к запросу подписи
 
             # подача заявки на лот
             # self.send_application(
@@ -375,6 +471,7 @@ class RequestBot:
             # )
 
             # Добавляем в переменную последний купленный лот
-            last_item_id.append(lot_id)
+            purchased_lots.append(lot_id)
+            print(f"Общая работа {time.time() - st:.4f} секунд")
 
             break  # TODO: В проде нужно будет удалить

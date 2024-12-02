@@ -53,7 +53,7 @@ def main():
         access_token = request_bot.get_access_token(local_storage_items)
         print(f"{access_token=}")
 
-        cart_id = request_bot.get_cart_id(local_storage_items)
+        cart_id = request_bot.get_cart_id(local_storage_items)  # TODO А зачем ?
         print(f"{cart_id=}")
 
         # Метод, где происходят все основные действия с лотами
