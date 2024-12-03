@@ -168,11 +168,11 @@ class Bot:
         while True:
             if driver.find_elements(By.ID, "tradeNumber"):
                 lotNum = driver.find_element(By.ID, "tradeNumber").get_attribute("innerText")
-                with open('../lot_numbers.txt', 'r') as r:
+                with open('lot_numbers.txt', 'r') as r:
                     if lotNum in r.read():
                         driver.execute_script("document.getElementsByClassName('card')[0].remove()")
                     else:
-                        with open('../lot_numbers.txt', 'a') as f:
+                        with open('lot_numbers.txt', 'a') as f:
                             f.write(lotNum)
                             if driver.find_element(By.ID, "applicationSendButton"):
                                 winsound.Beep(1000, 1000)

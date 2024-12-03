@@ -36,7 +36,7 @@ def main():
         time.sleep(3)
 
         # После перехода на предыдущую страницу происходит перенаправление на другую страницу.
-        # Ниже WebDriver проверяет перенаправило ли на страниц входа, если пользователь не залогинен
+        # Ниже WebDriver проверяет, перенаправило ли на страницу входа, если пользователь не залогинен
 
         if "https://login.agregatoreat.ru/Account/Login" in driver.current_url:
             bot.login_by_signature(driver)
@@ -55,6 +55,7 @@ def main():
         # bot.fill_search_text_field(driver, "100219253124100051") тест, заменить номер
 
         refresh_btn = bot.click_by_search(driver, 3)
+        start_time = time.time()
         bot.action_with_lots_or_refresh(driver, refresh_btn)
 
         bot.remove_date_end_application(driver)
@@ -86,7 +87,8 @@ def main():
                 break
             else:
                 time.sleep(1)
-
+        end_time = time.time()
+        print(f"Время от начала предложения до конца {end_time-start_time}")
         time.sleep(2)
 
         # kb = Controller()
