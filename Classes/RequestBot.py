@@ -181,7 +181,7 @@ class RequestBot:
         url = "https://tender-api.agregatoreat.ru/api/Application/draft?validate=false"
 
         # TODO: !!! Пример из запроса, а не корректные данные !!!
-        # для этого заказа, если важно https://agregatoreat.ru/purchases/application/price-request/b5214d7f-dfd7-4926-a7dc-23dcafbed771  # noqa
+        #  для этого заказа, если важно https://agregatoreat.ru/purchases/application/price-request/b5214d7f-dfd7-4926-a7dc-23dcafbed771  # noqa
         json_data = {
             "tradeLotId": "bb0a3250-0ae0-45ca-a69a-354235625beb",
             "applicationId": "d6d34658-7a55-46b1-8cae-6d128a748b2b",
@@ -321,7 +321,7 @@ class RequestBot:
             f"&access_token={credentials['access_token']}"
         )
 
-        print(f'\nПопытка запустить обмен по websockets')
+        print(f'Попытка запустить обмен по websockets')
         async with websockets.connect(wss_url) as websocket:
             print(
                 'Соединение по websockets прошло успешно. '
@@ -331,7 +331,7 @@ class RequestBot:
             print('Первое сообщение отправлено. Ждем ответ')
             response = await websocket.recv()
             print(f'Ответ получен {response}')
-            print(f'Переходим в бесконечный цикл обмена сообщениями')
+            print('Переходим в бесконечный цикл обмена сообщениями')
             while True:
                 raw_response = await websocket.recv()
                 print(f'Получили сырое сообщение -> {raw_response}')
@@ -386,7 +386,7 @@ class RequestBot:
         )
 
         # Документ
-        account_documents = self.find_documents_from_repository(session, access_token)  # TODO хз как работает
+        account_documents = self.find_documents_from_repository(session, access_token)
         document = account_documents["items"][0]
         print("Документы:", account_documents)
         print("Документ:", document)
