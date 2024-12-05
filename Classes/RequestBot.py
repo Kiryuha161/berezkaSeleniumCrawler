@@ -97,7 +97,7 @@ class RequestBot:
         :param access_token: Токен доступа.
         :param json_data: Передаваемые в параметры.
         :param cookie: Куки.
-        :return: Ответ на запрос или None
+        :return: Ответ на запрос или None.
         """
         headers = get_headers(access_token)
 
@@ -345,6 +345,8 @@ class RequestBot:
                     elif response['type'] == 1 and 'arguments' in response:
                         print(f'Получили сообщение о различных токенах лота {response["arguments"]}')
                         # TODO: вот тут что-то надо делать
+                        token = response["arguments"].get("token")
+                        print(f"Токен обновлен: {token}")
 
                         # for order in list_number_procedure:
                         #     callback(order, now)
@@ -369,7 +371,7 @@ class RequestBot:
         # После какого либо действия в лоте, например установления цены или прикрепить файл, сокет будет периодические
         # слать что-то типо такого
         # {"type":1,"target":"ApplicationDraftSaved","arguments":["9893e5e4-a909-4d6b-9786-3772f4cdcff1","f399e1ac-a297-4c86-a31f-c080ca35bf33"]}
-        # где один из аргументов (вроде бы последний но это не точно), это token для data-for-sign
+        # Первый - это applicationId, второй - это token для data-for-sign
 
         # TODO: Либо нужно вебсокеты запускать где-то как-то отдельно и читать что там происходит,
         #  либо перенести функцию по чтению сообщений в вебсокете внутрь цикла, после всех действий в лоте

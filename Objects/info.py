@@ -1,4 +1,4 @@
-def get_info(price_per_unit):
+def get_info(price_per_unit, document):
     info = {
         "customer": {
             "id": "a7df7848-c20f-4513-9a5d-f1b1916717be",
@@ -108,16 +108,7 @@ def get_info(price_per_unit):
             "totalPrice": 137500,
             "totalPriceWithoutTax": 128504.67,
             "documents": [
-                {
-                    "id": "a87c577c-97bf-4735-82ba-e890663c5d0e",
-                    "createdOn": "2024-11-27T07:46:30.83236",
-                    "name": "Заявки Транстех Березка.zip",
-                    "documentName": None,
-                    "typeName": None,
-                    "size": None,
-                    "type": 0,
-                    "signatureId": None
-                }
+                document
             ],
             "items": [
                 {
@@ -399,3 +390,13 @@ def get_info(price_per_unit):
     }
 
 
+# {
+#                     "id": "a87c577c-97bf-4735-82ba-e890663c5d0e",
+#                     "createdOn": "2024-11-27T07:46:30.83236",
+#                     "name": "Заявки Транстех Березка.zip",
+#                     "documentName": None,
+#                     "typeName": None,
+#                     "size": None,
+#                     "type": 0,
+#                     "signatureId": None
+#                 }
