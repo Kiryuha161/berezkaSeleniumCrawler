@@ -2,6 +2,7 @@ import asyncio
 import json
 import time
 from urllib.parse import urlsplit, parse_qs
+import threading
 
 import websockets
 from requests import Session
@@ -15,6 +16,8 @@ from Objects.tax_request import get_tax
 
 class RequestBot:
     """Класс, отвечающий за работу бота, подающего предложения через запросы, а не через интерфейс."""
+    def __init__(self):
+        self.token = None
 
     @staticmethod
     def get_cookies(driver):
@@ -180,8 +183,6 @@ class RequestBot:
         """
         url = "https://tender-api.agregatoreat.ru/api/Application/draft?validate=false"
 
-        # TODO: !!! Пример из запроса, а не корректные данные !!!
-        # для этого заказа, если важно https://agregatoreat.ru/purchases/application/price-request/b5214d7f-dfd7-4926-a7dc-23dcafbed771  # noqa
         json_data = {
             "tradeLotId": "bb0a3250-0ae0-45ca-a69a-354235625beb",
             "applicationId": "d6d34658-7a55-46b1-8cae-6d128a748b2b",
@@ -190,18 +191,6 @@ class RequestBot:
             "isAgreeToSupply": True,
             "deliveryPrice": 0,
             "documents": [
-                # { # Заполнил данными документа, что смог
-                #     "id": document["id"],
-                #     "type": 0,  # TODO: хз
-                #     "size": document["fileSize"],
-                #     "name": document["fileName"],
-                #     "version": None,
-                #     "isActual": None,
-                #     "typeName": None,
-                #     "documentName": None,
-                #     "createdOn": "",  # TODO: текущее время
-                #     "sendDate": None
-                # }
                 {
                     "id": "a87c577c-97bf-4735-82ba-e890663c5d0e",
                     "type": 0,
@@ -344,12 +333,8 @@ class RequestBot:
                         await websocket.send('{"type":6}\x1e')
                     elif response['type'] == 1 and 'arguments' in response:
                         print(f'Получили сообщение о различных токенах лота {response["arguments"]}')
-                        # TODO: вот тут что-то надо делать
-                        token = response["arguments"].get("token")
+                        token = response["arguments"][1]
                         print(f"Токен обновлен: {token}")
-
-                        # for order in list_number_procedure:
-                        #     callback(order, now)
                     else:
                         print('Ничего интересного пропускаем')
 
@@ -366,26 +351,20 @@ class RequestBot:
         ws_connection = self.get_websockets_from_selenium(driver)
         print(f"Информация для доступа к вебсокету {ws_connection}")
 
-        # TODO: вебсокет почему то не всегда с первой попытки запускается
-
-        # После какого либо действия в лоте, например установления цены или прикрепить файл, сокет будет периодические
-        # слать что-то типо такого
-        # {"type":1,"target":"ApplicationDraftSaved","arguments":["9893e5e4-a909-4d6b-9786-3772f4cdcff1","f399e1ac-a297-4c86-a31f-c080ca35bf33"]}
-        # Первый - это applicationId, второй - это token для data-for-sign
-
-        # TODO: Либо нужно вебсокеты запускать где-то как-то отдельно и читать что там происходит,
-        #  либо перенести функцию по чтению сообщений в вебсокете внутрь цикла, после всех действий в лоте
-
-        # Запуск асинхронной функции
-        asyncio.run(
-            self.listen_websockets(
-                {
-                    'id': ws_connection["id"],
-                    'v': ws_connection["v"],
-                    'access_token': ws_connection["access_token"]
-                }
+        # Запуск асинхронной функции в отдельном потоке
+        def run_websocket_listener():
+            asyncio.run(
+                self.listen_websockets(
+                    {
+                        'id': ws_connection["id"],
+                        'v': ws_connection["v"],
+                        'access_token': ws_connection["access_token"]
+                    }
+                )
             )
-        )
+
+        websocket_thread = threading.Thread(target=run_websocket_listener)
+        websocket_thread.start()
 
         # Документ
         account_documents = self.find_documents_from_repository(session, access_token)  # TODO хз как работает
@@ -414,8 +393,6 @@ class RequestBot:
                 items = item["lotItems"]
                 if not items:
                     continue
-
-                # TODO: можно попробовать добавить проверку на то выкупил ли уже кто нибудь лот по минимальной цене (len(items) * 0.01)  # noqa
 
                 need_continue = False  # переменная для прерывания цикла
 
@@ -464,13 +441,13 @@ class RequestBot:
             print("Отпечаток подписи:", thumbprint)
 
             # подача заявки на лот
-            # self.send_application(
-            #     session,
-            #     access_token,
-            #     application_id,
-            #     token, # TODO: нужно получит как то
-            #     oid # TODO: нужно получит как то
-            # )
+            #  self.send_application(
+            #      session,
+            #      access_token,
+            #      application_id,
+            #      token, # TODO: нужно получит как то
+            #      oid # TODO: нужно получит как то
+            #  )
 
             # Добавляем в переменную последний купленный лот
             purchased_lots.append(lot_id)
