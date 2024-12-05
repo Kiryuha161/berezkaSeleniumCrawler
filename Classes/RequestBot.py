@@ -12,12 +12,13 @@ from Objects.document_request import document_request_model
 from Objects.headers import get_headers
 from Objects.search import search_model
 from Objects.tax_request import get_tax
+from Objects.lot import get_lot
 
 
 class RequestBot:
     """Класс, отвечающий за работу бота, подающего предложения через запросы, а не через интерфейс."""
     def __init__(self):
-        self.token = None
+        self.application_id = None
 
     @staticmethod
     def get_cookies(driver):
@@ -256,9 +257,9 @@ class RequestBot:
         url = "https://registry-api.agregatoreat.ru/api/User/self"
         return self.send_get_request(session=session, url=url, access_token=access_token)
 
-    def send_application(self, session, access_token, application_id: str, token: str, oid: str):
+    def get_data_for_sign(self, session, access_token, application_id: str, token: str, oid: str):
         """
-        Подача заявки о покупке лота
+        Получение данных для подписания
         :param session: Сессия requests.
         :param access_token: Токен доступа.
         :param application_id:
@@ -266,7 +267,7 @@ class RequestBot:
         :param oid: ОИД
         :return: Объект с данными ответа.
         """
-        print("Подача предложения")
+        print("Получение данных для подписания")
         url = "https://tender-api.agregatoreat.ru/api/Application/data-for-sign"
         json_data = {
             "applicationId": application_id,  # "b7e35ad2-f8b2-461b-b484-e2db542c369b",
@@ -274,6 +275,12 @@ class RequestBot:
             "oid": oid  # "1.2.643.7.1.1.1.1"
         }
         return self.send_post_request(session=session, url=url, access_token=access_token, json_data=json_data)
+
+    def save_draft_application(self, session, access_token, ids, contact_info, document, price, trade, info):
+        url = "https://tender-api.agregatoreat.ru/api/Application/draft?validate=false"
+        lot = get_lot(ids, contact_info, document, price, trade, info)
+
+        return self.send_post_request(session=session, url=url, access_token=access_token, json_data=lot)
 
     @staticmethod
     def get_websockets_from_selenium(driver) -> dict[str, str] | None:
@@ -303,8 +310,9 @@ class RequestBot:
                         'access_token': query.get('access_token', [''])[0],
                     }
 
-    @staticmethod
-    async def listen_websockets(credentials):
+    # @staticmethod
+    async def listen_websockets(self, credentials, session, access_token, application_id, oid):
+        print("application_id в слушателе веб-сокета", application_id)
         wss_url = (
             f"wss://signalr.agregatoreat.ru/AuthorizedHub?id={credentials['id']}&v={credentials['v']}"
             f"&access_token={credentials['access_token']}"
@@ -335,6 +343,16 @@ class RequestBot:
                         print(f'Получили сообщение о различных токенах лота {response["arguments"]}')
                         token = response["arguments"][1]
                         print(f"Токен обновлен: {token}")
+                        # подача заявки на лот
+                        data_for_sign = self.get_data_for_sign(
+                            session=session,
+                            access_token=access_token,
+                            application_id=application_id,
+                            token=token,
+                            oid=oid  # TODO: нужно получит как то
+                        )
+
+                        print("Данные для подписания:", data_for_sign)
                     else:
                         print('Ничего интересного пропускаем')
 
@@ -350,21 +368,27 @@ class RequestBot:
 
         ws_connection = self.get_websockets_from_selenium(driver)
         print(f"Информация для доступа к вебсокету {ws_connection}")
+        oid = "1.2.643.7.1.1.1.1"  # Сейчас пока так, потом, надо будет получить
 
         # Запуск асинхронной функции в отдельном потоке
         def run_websocket_listener():
             asyncio.run(
                 self.listen_websockets(
-                    {
+                    credentials={
                         'id': ws_connection["id"],
                         'v': ws_connection["v"],
                         'access_token': ws_connection["access_token"]
-                    }
+                    },
+                    session=session,
+                    access_token=access_token,
+                    application_id=self.application_id, # "c1a39240-fb19-4951-b04b-c80c9d98c710",
+                    oid=oid
                 )
             )
 
         websocket_thread = threading.Thread(target=run_websocket_listener)
-        websocket_thread.start()
+
+
 
         # Документ
         account_documents = self.find_documents_from_repository(session, access_token)  # TODO хз как работает
@@ -422,14 +446,26 @@ class RequestBot:
             # Не понятно как передать в эту карточку значения некоторых свойств,
             # возможно следующие запросы меняют это значение в базе данных?
             lot_full_info = self.get_cart_lot(session, lot_id, access_token)
+            application_id = lot_full_info["info"]["id"]
+            self.application_id = application_id
+            websocket_thread.start()
+
+            # запуск потока для веб-сокета, начинается здесь, так как здесь я инициализирую application_id,
+            # который переношу в слушатель веб-сокета
+            # websocket_thread.start()
+
             print("Карточка лота:", lot_full_info)
             if not lot_full_info:
                 time.sleep(1)
                 continue
 
-            application_id = lot_full_info["info"]["id"]
+
+
+
             print("id предложения:", application_id)
 
+            # Если сохранение черновика через апи, работает как надо, то этот метод не нужен.
+            # Станет ясно, только после тестов, с удачной подачей
             self.set_document(session=session, access_token=access_token, document=document)  # TODO ОБЯЗАТЕЛЬНО ДОДЕЛАТЬ
 
             tax = self.set_not_taxed(session=session, access_token=access_token, price=0.01)  # TODO хз как работает
@@ -439,15 +475,45 @@ class RequestBot:
             print(sign_info)
             thumbprint = sign_info["thumbprints"][0]
             print("Отпечаток подписи:", thumbprint)
+            trade = lot_full_info["trade"]
+            info = lot_full_info["info"]
+            supplier = lot_full_info["supplier"]
 
-            # подача заявки на лот
-            #  self.send_application(
-            #      session,
-            #      access_token,
-            #      application_id,
-            #      token, # TODO: нужно получит как то
-            #      oid # TODO: нужно получит как то
-            #  )
+            draft_response = self.save_draft_application(
+                session=session,
+                access_token=access_token,
+                ids={
+                    "trade_lot": trade["id"],
+                    "application": application_id
+                },
+                contact_info={
+                    "person": supplier["contactFio"],
+                    "data": f"{supplier["phoneNumber"]}, {supplier["email"]}"
+                },
+                document=document,
+                price=0.01,
+                trade=trade,
+                info=info
+            )
+
+            print("Статус сохранения черновика:", draft_response)
+
+            # if self.token is not None:
+            #     # подача заявки на лот
+            #     data_for_sign = self.get_data_for_sign(
+            #         session,
+            #         access_token,
+            #         application_id,
+            #         self.token,  # TODO: нужно получит как то
+            #         oid  # TODO: нужно получит как то
+            #     )
+            #
+            #     print("Данные для подписания:", data_for_sign)
+            # else:
+            #     print("Токен не сформирован")
+
+
+
 
             # Добавляем в переменную последний купленный лот
             purchased_lots.append(lot_id)
