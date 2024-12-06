@@ -1,12 +1,12 @@
 import asyncio
 import json
 import time
-from urllib.parse import urlsplit, parse_qs
 import threading
-
 import websockets
+
 from requests import Session
 from selenium.webdriver.chrome.webdriver import WebDriver
+from urllib.parse import urlsplit, parse_qs
 
 from Objects.document_request import document_request_model
 from Objects.headers import get_headers
@@ -274,6 +274,7 @@ class RequestBot:
             "token": token,  # "f334dc87-bad7-4ff9-84b0-213b53a68d5f",
             "oid": oid  # "1.2.643.7.1.1.1.1"
         }
+
         return self.send_post_request(session=session, url=url, access_token=access_token, json_data=json_data)
 
     def save_draft_application(self, session, access_token, ids, contact_info, document, price, trade, info):
@@ -336,6 +337,7 @@ class RequestBot:
                     print('Парсим сообщение')
                     response = json.loads(raw_response.replace('\x1e', ''))
                     print(f"\n{response=}")
+                    print("Сессия:", dict(session.cookies))
                     if response['type'] == 6:
                         print('Получили служебное сообщение отправляем ответ <- {"type":6}')
                         await websocket.send('{"type":6}\x1e')
@@ -343,6 +345,7 @@ class RequestBot:
                         print(f'Получили сообщение о различных токенах лота {response["arguments"]}')
                         token = response["arguments"][1]
                         print(f"Токен обновлен: {token}")
+
                         # подача заявки на лот
                         data_for_sign = self.get_data_for_sign(
                             session=session,
@@ -366,6 +369,18 @@ class RequestBot:
         :return: Ничего
         """
 
+        # Получаем куки из веб-драйвера
+        selenium_cookies = self.get_cookies(driver)
+
+        # Преобразуем куки в формат, который может использовать requests
+        requests_cookies = {}
+        for cookie in selenium_cookies:
+            requests_cookies[cookie['Name']] = cookie['Value']
+
+        # Устанавливаем куки в объект сессии
+        session.cookies.update(requests_cookies)
+
+        # Далее ваш код...
         ws_connection = self.get_websockets_from_selenium(driver)
         print(f"Информация для доступа к вебсокету {ws_connection}")
         oid = "1.2.643.7.1.1.1.1"  # Сейчас пока так, потом, надо будет получить
@@ -381,14 +396,12 @@ class RequestBot:
                     },
                     session=session,
                     access_token=access_token,
-                    application_id=self.application_id, # "c1a39240-fb19-4951-b04b-c80c9d98c710",
+                    application_id=self.application_id,  # "c1a39240-fb19-4951-b04b-c80c9d98c710",
                     oid=oid
                 )
             )
 
         websocket_thread = threading.Thread(target=run_websocket_listener)
-
-
 
         # Документ
         account_documents = self.find_documents_from_repository(session, access_token)  # TODO хз как работает
@@ -459,14 +472,12 @@ class RequestBot:
                 time.sleep(1)
                 continue
 
-
-
-
             print("id предложения:", application_id)
 
             # Если сохранение черновика через апи, работает как надо, то этот метод не нужен.
             # Станет ясно, только после тестов, с удачной подачей
-            self.set_document(session=session, access_token=access_token, document=document)  # TODO ОБЯЗАТЕЛЬНО ДОДЕЛАТЬ
+            self.set_document(session=session, access_token=access_token,
+                              document=document)  # TODO ОБЯЗАТЕЛЬНО ДОДЕЛАТЬ
 
             tax = self.set_not_taxed(session=session, access_token=access_token, price=0.01)  # TODO хз как работает
             print("Налог:", tax)
@@ -511,9 +522,6 @@ class RequestBot:
             #     print("Данные для подписания:", data_for_sign)
             # else:
             #     print("Токен не сформирован")
-
-
-
 
             # Добавляем в переменную последний купленный лот
             purchased_lots.append(lot_id)
