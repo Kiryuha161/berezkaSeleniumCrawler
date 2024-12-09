@@ -6,7 +6,9 @@ def get_lot(ids, contact_info, document, price, trade, info):
         "contactData": contact_info["data"],
         "isAgreeToSupply": True,
         "deliveryPrice": 0,
-        "documents": [document],
+        "documents": [
+            document
+        ],
         "items": [
             {
                 "quotation": price,
@@ -44,45 +46,58 @@ def get_lot(ids, contact_info, document, price, trade, info):
 
     return lot
 
-    # {
-    #     "tradeLotId": "7b5bc423-55a3-4121-abd6-4ecb58c230fb",
-    #     "applicationId": "c1a39240-fb19-4951-b04b-c80c9d98c710",
+    # lot = {
+    #     "tradeLotId": "f34b0b6c-3e7f-4b4e-9136-a8c9293535c4",
+    #     "applicationId": "9d56d22c-1a23-4f9b-af70-569c091f786b",
     #     "contactPerson": "Кузнецова  Ксения Геннадиевна",
     #     "contactData": "тел. +7(989)621-05-03, sperik_ice@mail.ru",
-    #     "isAgreeToSupply": true,
+    #     "isAgreeToSupply": True,
     #     "deliveryPrice": 0,
-    #     "documents": [],
+    #     "documents": [
+    #         {
+    #             "id": "a87c577c-97bf-4735-82ba-e890663c5d0e",
+    #             "type": 0,
+    #             "size": 6356006,
+    #             "name": "Заявки Транстех Березка.zip",
+    #             "version": None,
+    #             "isActual": None,
+    #             "typeName": None,
+    #             "documentName": None,
+    #             "createdOn": "2024-12-09T07:11:12Z",
+    #             "sendDate": None
+    #         }
+    #     ],
     #     "items": [
     #         {
-    #             "quotation": 2346.6,
+    #             "quotation": 7000,
     #             "quantity": 1,
     #             "tradeLotItemOrder": 0,
-    #             "taxPercent": null,
-    #             "name": "Услуги по обязательному страхованию гражданской ответственности владельца транспортных средств",
+    #             "taxPercent": None,
+    #             "name": None,
     #             "offerId": "00000000-0000-0000-0000-000000000000",
-    #             "offerNumber": null,
-    #             "countryOfOrigin": null,
-    #             "isPriceWithTax": true,
+    #             "offerNumber": None,
+    #             "countryOfOrigin": None,
+    #             "isPriceWithTax": True,
     #             "calculatedTax": 0,
-    #             "sum": 2346.6,
-    #             "offerName": null,
-    #             "description": "Марка, модель ТС : ГАЗ-3221\nИдентификационный номер (VIN): ХТН32210030333979\nГод ВЫПУСКА: 2003\nМощность двигателя, КВт/л.с.: 72,2\nПаспорт ТС 52КР752156 от 18.09.2003\nг.р.н. О846РВ74\nРазрешенная максимальная масса, кг 3250\nШасси -\nКузов (прицеп) 32210030058531",
-    #             "offerDescription": null,
+    #             "sum": 7000,
+    #             "offerName": None,
+    #             "description": "Поставка товара согласно спецификации, без аналогов и замен.",
+    #             "offerDescription": None,
     #             "priceOption": 1,
-    #             "requireOfferSpecification": false,
-    #             "russianItemsRegistryNum": null,
-    #             "russianItemsRegistry": null,
-    #             "isSelected": false,
-    #             "referenceOfferId": null,
-    #             "referenceOfferNumber": null,
-    #             "isReference": false
+    #             "requireOfferSpecification": False,
+    #             "russianItemsRegistryNum": None,
+    #             "russianItemsRegistry": None,
+    #             "isSelected": False,
+    #             "referenceOfferId": None,
+    #             "referenceOfferNumber": None,
+    #             "isReference": False
     #         }
     #     ],
     #     "applicationSubType": 0,
-    #     "applicationPriceHidden": false,
-    #     "sessionConclusionContractPrice": null,
-    #     "decreasePercent": null,
-    #     "unitPriceSum": 2346.6,
+    #     "applicationPriceHidden": False,
+    #     "sessionConclusionContractPrice": None,
+    #     "decreasePercent": None,
+    #     "unitPriceSum": 0,
     #     "calculatedTax": 0,
     #     "taxPercent": 0
     # }
