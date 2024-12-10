@@ -46,6 +46,7 @@ def main():
             bot.monitor_element_presence(driver, "#orglist")
             bot.login_by_gosuslugi(driver)
 
+        time.sleep(5)
         # Страница с новыми лотами (где стоит статус Подача предложения)
         driver.get("https://agregatoreat.ru/purchases/new")
 

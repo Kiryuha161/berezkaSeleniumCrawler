@@ -8,17 +8,19 @@ from requests import Session
 from selenium.webdriver.chrome.webdriver import WebDriver
 from urllib.parse import urlsplit, parse_qs
 
-
 from Objects.document_request import document_request_model
 from Objects.headers import get_headers
 from Objects.search import search_model
 from Objects.tax_request import get_tax
 from Objects.lot import get_lot
 
+
+# Проблема с tradeId возможно. Несоответствие, завтра проверить
 class RequestBot:
     """Класс, отвечающий за работу бота, подающего предложения через запросы, а не через интерфейс."""
     def __init__(self):
         self.token = None
+        self.prevToken = None
         self.info = None
         self.supplier = None
         self.trade = None
@@ -302,34 +304,34 @@ class RequestBot:
             "token": token,  # "f334dc87-bad7-4ff9-84b0-213b53a68d5f",
             "oid": oid  # "1.2.643.7.1.1.1.1"
         }
-        headers = {
-            "authority": "tender-api.agregatoreat.ru",
-            "method": "POST",
-            "path": "/api/Application/data-for-sign",
-            "scheme": "https",
-            "authorization": f"Bearer {access_token}",
-            "accept": "application/json,text/plain,*/*",
-            "accept-encoding": "gzip,deflate,br,zstd",
-            "accept-language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-            "cache-control": "no-cache",
-            "content-length": "129",
-            "content-type": "application/json",
-            "origin": "https://agregatoreat.ru",
-            "pragma": "no-cache",
-            "priority": "u=1,i",
-            "referer": "https://agregatoreat.ru/",
-            "sec-ch-ua": "\"Google Chrome\";v=\"131\",\"Chromium\";v=\"131\",\"Not_A Brand\";v=\"24\"",
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": "Windows",
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-site",
-            "user-agent": "Mozilla/5.0(Windows NT 10.0;Win64;x64) AppleWebKit/537.36(KHTML, like Gecko) Chrome/131.0.0.0 Safari/ 37.36"
-        }
+        # headers = {
+        #     "authority": "tender-api.agregatoreat.ru",
+        #     "method": "POST",
+        #     "path": "/api/Application/data-for-sign",
+        #     "scheme": "https",
+        #     "authorization": f"Bearer {access_token}",
+        #     "accept": "application/json,text/plain,*/*",
+        #     "accept-encoding": "gzip,deflate,br,zstd",
+        #     "accept-language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+        #     "cache-control": "no-cache",
+        #     "content-length": "129",
+        #     "content-type": "application/json",
+        #     "origin": "https://agregatoreat.ru",
+        #     "pragma": "no-cache",
+        #     "priority": "u=1,i",
+        #     "referer": "https://agregatoreat.ru/",
+        #     "sec-ch-ua": "\"Google Chrome\";v=\"131\",\"Chromium\";v=\"131\",\"Not_A Brand\";v=\"24\"",
+        #     "sec-ch-ua-mobile": "?0",
+        #     "sec-ch-ua-platform": "Windows",
+        #     "sec-fetch-dest": "empty",
+        #     "sec-fetch-mode": "cors",
+        #     "sec-fetch-site": "same-site",
+        #     "user-agent": "Mozilla/5.0(Windows NT 10.0;Win64;x64) AppleWebKit/537.36(KHTML, like Gecko) Chrome/131.0.0.0 Safari/ 37.36"
+        # }
 
-        print(f"{json_data["applicationId"]=}, {json_data["token"]=}, {json_data["oid"]=}")
-        # return self.send_post_request(session=session, url=url, access_token=access_token, json_data=json_data)
-        return self.send_post_request_with_headers(session=session, url=url, json_data=json_data, headers=headers)
+        print(f"json_data: {json_data["applicationId"]=}, {json_data["token"]=}, {json_data["oid"]=}")
+        return self.send_post_request(session=session, url=url, access_token=access_token, json_data=json_data)
+        # return self.send_post_request_with_headers(session=session, url=url, json_data=json_data, headers=headers)
 
     def save_draft_application(self, session, access_token, ids, contact_info, document, price, trade, info):
         url = "https://tender-api.agregatoreat.ru/api/Application/draft?validate=false"
@@ -367,18 +369,17 @@ class RequestBot:
                     }
 
         # @staticmethod
-    async def listen_websockets(self, credentials, session, trade, application_id, supplier, document, info):
+    async def listen_websockets(self, credentials, session, trade, application_id, supplier, document, info, contact_info, ids):
         wss_url = (
             f"wss://signalr.agregatoreat.ru/AuthorizedHub?id={credentials['id']}&v={credentials['v']}"
             f"&access_token={credentials['access_token']}"
         )
 
         print(f'\nПопытка запустить обмен по websockets')
-        retry_count = 5
-        retry_delay = 5  # seconds
+        retry_count = 10
+        retry_delay = 2  # seconds
 
         for attempt in range(retry_count):
-            print(f"Попыток осталось {retry_count}")
             try:
                 async with websockets.connect(wss_url) as websocket:
                     print(
@@ -393,30 +394,17 @@ class RequestBot:
                     draft_response = self.save_draft_application(
                         session=session,
                         access_token=credentials['access_token'],
-                        ids={
-                            "trade_lot": trade["id"],
-                            "application": application_id
-                        },
-                        contact_info={
-                            "person": supplier["contactFio"],
-                            "data": f"{supplier['phoneNumber']}, {supplier['email']}"
-                        },
+                        ids=ids,
+                        contact_info=contact_info,
                         document=document,
-                        price=10000,
+                        price=0.01,
                         trade=trade,
                         info=info
                     )
                     print(f"{draft_response=}")
 
-                    data_for_sign = self.get_data_for_sign(
-                        session=session,
-                        access_token=credentials['access_token'],
-                        application_id=application_id,
-                        token=self.token,
-                        oid="1.2.643.7.1.1.1.1"
-                    )
-
-                    print(f"{data_for_sign=}")
+                    if self.token is not None:
+                        self.prevToken = token
                     while True:
                         raw_response = await websocket.recv()
                         print(f'Получили сырое сообщение -> {raw_response}')
@@ -435,16 +423,10 @@ class RequestBot:
                                 draft_response = self.save_draft_application(
                                     session=session,
                                     access_token=credentials['access_token'],
-                                    ids={
-                                        "trade_lot": trade["id"],
-                                        "application": application_id
-                                    },
-                                    contact_info={
-                                        "person": supplier["contactFio"],
-                                        "data": f"{supplier['phoneNumber']}, {supplier['email']}"
-                                    },
+                                    ids=ids,
+                                    contact_info=contact_info,
                                     document=document,
-                                    price=10000,
+                                    price=0.01,
                                     trade=trade,
                                     info=info
                                 )
@@ -453,7 +435,7 @@ class RequestBot:
                                     session=session,
                                     access_token=credentials['access_token'],
                                     application_id=application_id,
-                                    token=self.token,
+                                    token=self.token,  # self.token
                                     oid="1.2.643.7.1.1.1.1"
                                 )
 
@@ -463,7 +445,7 @@ class RequestBot:
                         except Exception as ex:
                             print("Ошибка", ex)
                     break  # Если соединение успешно, выходим из цикла повторных попыток
-            except websockets.exceptions.ConnectionClosedError as e:
+            except(websockets.exceptions.ConnectionClosedError, websockets.exceptions.InvalidStatusCode) as e:
                 print(f"Ошибка подключения к WebSocket: {e}. Попытка {attempt + 1} из {retry_count}")
                 if attempt < retry_count - 1:
                     print(f"Повторная попытка через {retry_delay} секунд...")
@@ -508,7 +490,9 @@ class RequestBot:
                     application_id=self.application_id,
                     supplier=self.supplier,
                     document=self.document,
-                    info=self.info
+                    info=self.info,
+                    ids=self.ids,
+                    contact_info=self.contact_info
                 )
             )
 
@@ -518,6 +502,7 @@ class RequestBot:
         # Документ
         account_documents = self.find_documents_from_repository(session, access_token)  # TODO хз как работает
         document = account_documents["items"][0]
+        document["documentName"] = "Документы"
         self.document = document
         print("Документы:", account_documents)
         print("Документ:", document)
@@ -593,16 +578,21 @@ class RequestBot:
 
             trade = lot_full_info["trade"]
             self.trade = trade
+            print(f"{trade=}")
             info = lot_full_info["info"]
             self.info = info
+            print(f"{info=}")
             supplier = lot_full_info["supplier"]
             self.supplier = supplier
+            print(f"{supplier=}")
 
             ids = {
-                "trade_lot": trade["id"],
+                "trade_lot": info["tradeLotId"],
                 "application": application_id
             }
             self.ids = ids
+            print(f"{ids["trade_lot"]=}")
+            print(f"{ids["application"]=}")
 
             contact_info = {
                 "person": supplier["contactFio"],
