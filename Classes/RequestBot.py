@@ -28,6 +28,8 @@ class RequestBot:
         self.application_id = None
         self.contact_info = None
         self.ids = None
+        self.print_form = None
+        self.web_socket = None
 
     @staticmethod
     def get_cookies(driver):
@@ -98,7 +100,9 @@ class RequestBot:
             return response.json()
 
         print(f"Статус: {response.status_code}")
-        print(response.text)
+        print(f"{response.text=}")
+        print(f"{response.reason=}")
+        print(f"{response.headers=}")
         return
 
     @staticmethod
@@ -106,6 +110,25 @@ class RequestBot:
         start_time = time.time()
 
         response = session.post(url, headers=headers, json=json_data)
+
+        end_time = time.time()
+
+        print(f"\nPOST запрос к {url} занял {end_time - start_time:.4f} секунд")
+
+        if response.status_code == 200:
+            return response.json()
+
+        print(f"Статус: {response.status_code}")
+        print(f"{response.text=}")
+        print(f"{response.reason=}")
+        print(f"{response.headers=}")
+        return
+
+    @staticmethod
+    def send_get_request_with_headers(session, url, headers=None):
+        start_time = time.time()
+
+        response = session.get(url, headers=headers)
 
         end_time = time.time()
 
@@ -304,34 +327,9 @@ class RequestBot:
             "token": token,  # "f334dc87-bad7-4ff9-84b0-213b53a68d5f",
             "oid": oid  # "1.2.643.7.1.1.1.1"
         }
-        # headers = {
-        #     "authority": "tender-api.agregatoreat.ru",
-        #     "method": "POST",
-        #     "path": "/api/Application/data-for-sign",
-        #     "scheme": "https",
-        #     "authorization": f"Bearer {access_token}",
-        #     "accept": "application/json,text/plain,*/*",
-        #     "accept-encoding": "gzip,deflate,br,zstd",
-        #     "accept-language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-        #     "cache-control": "no-cache",
-        #     "content-length": "129",
-        #     "content-type": "application/json",
-        #     "origin": "https://agregatoreat.ru",
-        #     "pragma": "no-cache",
-        #     "priority": "u=1,i",
-        #     "referer": "https://agregatoreat.ru/",
-        #     "sec-ch-ua": "\"Google Chrome\";v=\"131\",\"Chromium\";v=\"131\",\"Not_A Brand\";v=\"24\"",
-        #     "sec-ch-ua-mobile": "?0",
-        #     "sec-ch-ua-platform": "Windows",
-        #     "sec-fetch-dest": "empty",
-        #     "sec-fetch-mode": "cors",
-        #     "sec-fetch-site": "same-site",
-        #     "user-agent": "Mozilla/5.0(Windows NT 10.0;Win64;x64) AppleWebKit/537.36(KHTML, like Gecko) Chrome/131.0.0.0 Safari/ 37.36"
-        # }
 
         print(f"json_data: {json_data["applicationId"]=}, {json_data["token"]=}, {json_data["oid"]=}")
         return self.send_post_request(session=session, url=url, access_token=access_token, json_data=json_data)
-        # return self.send_post_request_with_headers(session=session, url=url, json_data=json_data, headers=headers)
 
     def save_draft_application(self, session, access_token, ids, contact_info, document, price, trade, info):
         url = "https://tender-api.agregatoreat.ru/api/Application/draft?validate=false"
@@ -339,6 +337,10 @@ class RequestBot:
         print("lot", lot)
 
         return self.send_post_request(session=session, url=url, access_token=access_token, json_data=lot)
+
+    def generate_print_form(self, session, access_token, application_id, token):
+        url = f"https://tender-api.agregatoreat.ru/api/Application/{application_id}/print-form/{token}"
+        return self.send_get_request(session=session, url=url, access_token=access_token)
 
     @staticmethod
     def get_websockets_from_selenium(driver) -> dict[str, str] | None:
@@ -369,7 +371,7 @@ class RequestBot:
                     }
 
         # @staticmethod
-    async def listen_websockets(self, credentials, session, trade, application_id, supplier, document, info, contact_info, ids):
+    async def listen_websockets(self, credentials, session, trade, application_id, document, info, contact_info, ids):
         wss_url = (
             f"wss://signalr.agregatoreat.ru/AuthorizedHub?id={credentials['id']}&v={credentials['v']}"
             f"&access_token={credentials['access_token']}"
@@ -382,6 +384,11 @@ class RequestBot:
         for attempt in range(retry_count):
             try:
                 async with websockets.connect(wss_url) as websocket:
+                    if self.web_socket and not self.web_socket.closed:
+                        print("Существующее соединение активно. Закрываем его перед подключением.")
+                        await self.web_socket.close()
+
+                    self.web_socket = websocket
                     print(
                         'Соединение по websockets прошло успешно. '
                         'Попытка отправить первое сообщение -> {"protocol":"json","version":1}'
@@ -391,17 +398,18 @@ class RequestBot:
                     response = await websocket.recv()
                     print(f'Ответ получен {response}')
                     print(f'Переходим в бесконечный цикл обмена сообщениями')
-                    draft_response = self.save_draft_application(
-                        session=session,
-                        access_token=credentials['access_token'],
-                        ids=ids,
-                        contact_info=contact_info,
-                        document=document,
-                        price=0.01,
-                        trade=trade,
-                        info=info
-                    )
-                    print(f"{draft_response=}")
+                    if application_id is not None:
+                        draft_response = self.save_draft_application(
+                            session=session,
+                            access_token=credentials['access_token'],
+                            ids=ids,
+                            contact_info=contact_info,
+                            document=document,
+                            price=0.01,
+                            trade=trade,
+                            info=info
+                        )
+                        print(f"{draft_response=}")
 
                     if self.token is not None:
                         self.prevToken = token
@@ -417,29 +425,32 @@ class RequestBot:
                                 await websocket.send('{"type":6}\x1e')
                             elif response['type'] == 1 and 'arguments' in response:
                                 print(f'Получили сообщение о различных токенах лота {response["arguments"]}')
-                                token = response["arguments"][1]
+                                token = response["arguments"][-1]  # [1]
                                 self.token = token
-                                print(f"Токен обновлен: {token}")
-                                draft_response = self.save_draft_application(
-                                    session=session,
-                                    access_token=credentials['access_token'],
-                                    ids=ids,
-                                    contact_info=contact_info,
-                                    document=document,
-                                    price=0.01,
-                                    trade=trade,
-                                    info=info
-                                )
-                                print(f"{draft_response=}")
-                                data_for_sign = self.get_data_for_sign(
-                                    session=session,
-                                    access_token=credentials['access_token'],
-                                    application_id=application_id,
-                                    token=self.token,  # self.token
-                                    oid="1.2.643.7.1.1.1.1"
-                                )
+                                print(f"Токен обновлен в первый раз: {token}")
+                                if application_id is not None and self.print_form is None:
+                                    print_form = self.generate_print_form(
+                                        session=session,
+                                        access_token=credentials["access_token"],
+                                        application_id=application_id,
+                                        token=self.token
+                                    )
+                                    print(f"{print_form}")
+                                    self.print_form = print_form
 
-                                print(f"{data_for_sign=}")
+                                if response["target"] == "ApplicationPrintFormGenerated":
+                                    token = response["arguments"][-1]  # [1]
+                                    self.token = token
+                                    print("Второе обновление токена", token)
+                                    data_for_sign = self.get_data_for_sign(
+                                        session=session,
+                                        access_token=credentials['access_token'],
+                                        application_id=application_id,
+                                        token=self.token,  # self.token
+                                        oid="1.2.643.7.1.1.1.1"
+                                    )
+
+                                    print(f"{data_for_sign=}")
                             else:
                                 print('Ничего интересного пропускаем')
                         except Exception as ex:
@@ -488,7 +499,6 @@ class RequestBot:
                     session=session,
                     trade=self.trade,
                     application_id=self.application_id,
-                    supplier=self.supplier,
                     document=self.document,
                     info=self.info,
                     ids=self.ids,
