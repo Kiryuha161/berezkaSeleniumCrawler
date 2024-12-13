@@ -15,9 +15,10 @@ from Objects.tax_request import get_tax
 from Objects.lot import get_lot
 
 
-# Проблема с tradeId возможно. Несоответствие, завтра проверить
+# Проверить сохранение черновика (документы)
 class RequestBot:
     """Класс, отвечающий за работу бота, подающего предложения через запросы, а не через интерфейс."""
+
     def __init__(self):
         self.token = None
         self.prevToken = None
@@ -97,44 +98,10 @@ class RequestBot:
         print(f"\nGET запрос к {url} занял {end_time - start_time:.4f} секунд")
 
         if response.status_code == 200:
-            return response.json()
-
-        print(f"Статус: {response.status_code}")
-        print(f"{response.text=}")
-        print(f"{response.reason=}")
-        print(f"{response.headers=}")
-        return
-
-    @staticmethod
-    def send_post_request_with_headers(session, url, json_data=None, headers=None):
-        start_time = time.time()
-
-        response = session.post(url, headers=headers, json=json_data)
-
-        end_time = time.time()
-
-        print(f"\nPOST запрос к {url} занял {end_time - start_time:.4f} секунд")
-
-        if response.status_code == 200:
-            return response.json()
-
-        print(f"Статус: {response.status_code}")
-        print(f"{response.text=}")
-        print(f"{response.reason=}")
-        print(f"{response.headers=}")
-        return
-
-    @staticmethod
-    def send_get_request_with_headers(session, url, headers=None):
-        start_time = time.time()
-
-        response = session.get(url, headers=headers)
-
-        end_time = time.time()
-
-        print(f"\nPOST запрос к {url} занял {end_time - start_time:.4f} секунд")
-
-        if response.status_code == 200:
+            print(f"Статус: {response.status_code}")
+            print(f"{response.text=}")
+            print(f"{response.reason=}")
+            print(f"{response.headers=}")
             return response.json()
 
         print(f"Статус: {response.status_code}")
@@ -165,6 +132,33 @@ class RequestBot:
         print(f"\nPOST запрос к {url} занял {end_time - start_time:.4f} секунд")
 
         if response.status_code == 200:
+            print(f"Статус: {response.status_code}")
+            print(f"{response.text=}")
+            print(f"{response.reason=}")
+            print(f"{response.headers=}")
+            return response.json()
+
+        print(f"Статус: {response.status_code}")
+        print(f"{response.text=}")
+        print(f"{response.reason=}")
+        print(f"{response.headers=}")
+        return
+
+    @staticmethod
+    def send_post_with_headers(session, url, headers, json_data=None):
+        start_time = time.time()
+
+        response = session.post(url, headers=headers, json=json_data)
+
+        end_time = time.time()
+
+        print(f"\nPOST запрос к {url} занял {end_time - start_time:.4f} секунд")
+
+        if response.status_code == 200:
+            print(f"Статус: {response.status_code}")
+            print(f"{response.text=}")
+            print(f"{response.reason=}")
+            print(f"{response.headers=}")
             return response.json()
 
         print(f"Статус: {response.status_code}")
@@ -323,13 +317,35 @@ class RequestBot:
         print("Получение данных для подписания")
         url = "https://tender-api.agregatoreat.ru/api/Application/data-for-sign"
         json_data = {
-            "applicationId": application_id,  # "b7e35ad2-f8b2-461b-b484-e2db542c369b",
-            "token": token,  # "f334dc87-bad7-4ff9-84b0-213b53a68d5f",
+            "applicationId": application_id,
+            "token": token,
             "oid": oid  # "1.2.643.7.1.1.1.1"
         }
 
+        headers = {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "accept-language": "ru,en;q=0.9",
+            "authorization": f"Bearer {access_token}",
+            "cache-control": "no-cache",
+            "connection": "keep-alive",
+            "content-type": "application/json",
+            "host": "tender-api.agregatoreat.ru",
+            "origin": "https://agregatoreat.ru",
+            "pragma": "no-cache",
+            "referer": "https://agregatoreat.ru/",
+            "sec-ch-ua": '"Chromium";v="128", "Not;A=Brand";v="24", "YaBrowser";v="24.10", "Yowser";v="2.5"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-site",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 YaBrowser/24.10.0.0 Safari/537.36"
+        }
+
         print(f"json_data: {json_data["applicationId"]=}, {json_data["token"]=}, {json_data["oid"]=}")
-        return self.send_post_request(session=session, url=url, access_token=access_token, json_data=json_data)
+        # return self.send_post_request(session=session, url=url, access_token=access_token, json_data=json_data)
+        return self.send_post_with_headers(session, url, headers, json_data)
 
     def save_draft_application(self, session, access_token, ids, contact_info, document, price, trade, info):
         url = "https://tender-api.agregatoreat.ru/api/Application/draft?validate=false"
@@ -371,6 +387,7 @@ class RequestBot:
                     }
 
         # @staticmethod
+
     async def listen_websockets(self, credentials, session, trade, application_id, document, info, contact_info, ids):
         wss_url = (
             f"wss://signalr.agregatoreat.ru/AuthorizedHub?id={credentials['id']}&v={credentials['v']}"
@@ -380,15 +397,10 @@ class RequestBot:
         print(f'\nПопытка запустить обмен по websockets')
         retry_count = 10
         retry_delay = 2  # seconds
-
         for attempt in range(retry_count):
             try:
                 async with websockets.connect(wss_url) as websocket:
-                    if self.web_socket and not self.web_socket.closed:
-                        print("Существующее соединение активно. Закрываем его перед подключением.")
-                        await self.web_socket.close()
-
-                    self.web_socket = websocket
+                    print(f"{websocket=}")
                     print(
                         'Соединение по websockets прошло успешно. '
                         'Попытка отправить первое сообщение -> {"protocol":"json","version":1}'
@@ -446,7 +458,7 @@ class RequestBot:
                                         session=session,
                                         access_token=credentials['access_token'],
                                         application_id=application_id,
-                                        token=self.token,  # self.token
+                                        token=self.token,
                                         oid="1.2.643.7.1.1.1.1"
                                     )
 
@@ -455,7 +467,7 @@ class RequestBot:
                                 print('Ничего интересного пропускаем')
                         except Exception as ex:
                             print("Ошибка", ex)
-                    break  # Если соединение успешно, выходим из цикла повторных попыток
+                    break   # Если соединение успешно, выходим из цикла повторных попыток
             except(websockets.exceptions.ConnectionClosedError, websockets.exceptions.InvalidStatusCode) as e:
                 print(f"Ошибка подключения к WebSocket: {e}. Попытка {attempt + 1} из {retry_count}")
                 if attempt < retry_count - 1:
@@ -471,7 +483,6 @@ class RequestBot:
         Если лота нет среди purchased_lots и у него не фиксированная цена, то идут запросы для подачи заявки за 0.01.
         :return: Ничего
         """
-
         # Получаем куки из веб-драйвера
         selenium_cookies = self.get_cookies(driver)
 
@@ -506,16 +517,11 @@ class RequestBot:
                 )
             )
 
-        # websocket_thread = threading.Thread(target=run_websocket_listener)
-        # websocket_thread.start()
-
         # Документ
         account_documents = self.find_documents_from_repository(session, access_token)  # TODO хз как работает
         document = account_documents["items"][0]
         document["documentName"] = "Документы"
         self.document = document
-        print("Документы:", account_documents)
-        print("Документ:", document)
 
         purchased_lots = []  # переменная для хранения выкупленных лотов
         while True:
@@ -567,75 +573,34 @@ class RequestBot:
             # Не понятно как передать в эту карточку значения некоторых свойств,
             # возможно следующие запросы меняют это значение в базе данных?
             lot_full_info = self.get_cart_lot(session, lot_id, access_token)
-            print("Карточка лота:", lot_full_info)
             if not lot_full_info:
                 time.sleep(1)
                 continue
 
-            application_id = lot_full_info["info"]["id"]
-            print("id предложения:", application_id)
-            self.application_id = application_id
+            self.application_id = lot_full_info["info"]["id"]
+            print(f"{self.application_id=}")
 
-            # self.set_document(session=session, access_token=access_token, document=document)  # TODO ОБЯЗАТЕЛЬНО ДОДЕЛАТЬ
-            #
-            # tax = self.set_not_taxed(session=session, access_token=access_token, price=0.01)  # TODO хз как работает
-            # print("Налог:", tax)
-            #
-            # sign_info = self.get_sign_info(session=session, access_token=access_token)  # TODO а нужно ли ?
-            # print(sign_info)
-            # thumbprint = sign_info["thumbprints"][0]
-            # print("Отпечаток подписи:", thumbprint)
+            self.trade = lot_full_info["trade"]
+            print(f"{self.trade=}")
+            self.info = lot_full_info["info"]
+            print(f"{self.info=}")
+            self.supplier = lot_full_info["supplier"]
+            print(f"{self.supplier=}")
 
-            trade = lot_full_info["trade"]
-            self.trade = trade
-            print(f"{trade=}")
-            info = lot_full_info["info"]
-            self.info = info
-            print(f"{info=}")
-            supplier = lot_full_info["supplier"]
-            self.supplier = supplier
-            print(f"{supplier=}")
-
-            ids = {
-                "trade_lot": info["tradeLotId"],
-                "application": application_id
+            self.ids = {
+                "trade_lot": self.info["tradeLotId"],
+                "application": self.application_id
             }
-            self.ids = ids
-            print(f"{ids["trade_lot"]=}")
-            print(f"{ids["application"]=}")
+            print(f"{self.ids["trade_lot"]=}")
+            print(f"{self.ids["application"]=}")
 
-            contact_info = {
-                "person": supplier["contactFio"],
-                "data": f"{supplier["phoneNumber"]}, {supplier["email"]}"
+            self.contact_info = {
+                "person": self.supplier["contactFio"],
+                "data": f"{self.supplier["phoneNumber"]}, {self.supplier["email"]}"
             }
-            self.contact_info = contact_info
 
             websocket_thread = threading.Thread(target=run_websocket_listener)
             websocket_thread.start()
-
-            # draft_response = self.save_draft_application(
-            #     session=session,
-            #     access_token=access_token,
-            #     ids=ids,
-            #     contact_info=contact_info,
-            #     document=document,
-            #     price=10000,
-            #     trade=trade,
-            #     info=info
-            # )
-            #
-            # print(f"{draft_response=}")
-
-            # print(f"Token for sign_data: {self.token}")
-
-            # получить данные для подписи
-            #  self.get_data_for_sign(
-            #      session,
-            #      access_token,
-            #      application_id,
-            #      token, # TODO: нужно получит как то
-            #      oid # TODO: нужно получит как то
-            #  )
 
             # Добавляем в переменную последний купленный лот
             purchased_lots.append(lot_id)
